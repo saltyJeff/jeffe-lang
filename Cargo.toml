@@ -1,0 +1,12 @@
+[package]
+name = "jeffe-lang"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+libc = "0.2"
+static_assertions = "1.1.0"
+
+[[test]]
+name = "lib_tests"
+path = "test/lib_tests.rs"
