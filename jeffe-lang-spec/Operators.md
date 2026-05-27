@@ -15,7 +15,7 @@ Users should set their compiler's settings so that their `classfn` handles each 
 - `set(key: struct jeffe_value, val: struct jeffe_value)`: performs `a[key] = val`
 	- returns `nil`
 ## Meta 
-- `is_err()`: returns a Boolean indicating whether the value should be interpreted as an error. Used to enable users to define complex errors. See [[ABI#Object Implementation]]
+- `is_err()`: returns a Boolean indicating whether the value should be interpreted as an error. Used to enable users to define complex errors. See [[ABI#Objecs]]
 	- returns `bool`
 - `name()`: returns a `const char *` indicating the name of the class.
 ## Arithmetic

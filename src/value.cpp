@@ -3,14 +3,6 @@
 #include "jeffe_lang.h"
 #include "objmeta.hpp"
 
-static jeffe_value value_builder(jeffe_typetag tag, int8_t meta, uint64_t payload)
-{
-    uint64_t v = ((uint64_t)tag << TYPETAG_SHIFT) | (((uint64_t)meta & 0xFF) << 48) | (payload & PAYLOAD_MASK);
-    jeffe_value ret;
-    ret.v = v;
-    return ret;
-}
-
 jeffe_value jeffe_value_nil()
 {
     return value_builder(JEFFE_TYPETAG_NIL, 0, 0);
@@ -33,7 +25,8 @@ jeffe_value jeffe_value_u32(uint32_t u)
 }
 jeffe_value jeffe_value_f32(float f)
 {
-    union {
+    union
+    {
         float x;
         uint32_t y;
     } pun;
@@ -78,4 +71,46 @@ jeffe_value jeffe_value_obj(jeffe_class_fn fn, size_t argn, const jeffe_value *a
 jeffe_typetag jeffe_value_type(jeffe_value v)
 {
     return static_cast<jeffe_typetag>((v.v >> TYPETAG_SHIFT) & 0xFF);
+}
+jeffe_value_holder jeffe_value_held_data(jeffe_value v)
+{
+    jeffe_value_holder holder;
+    holder.typetag = jeffe_value_type(v);
+    switch (holder.typetag)
+    {
+    case JEFFE_TYPETAG_NIL: break;
+    case JEFFE_TYPETAG_CHAR: holder.c = static_cast<char32_t>(v.v & PAYLOAD_MASK); break;
+    case JEFFE_TYPETAG_BOOL: holder.b = static_cast<bool>(v.v & PAYLOAD_MASK); break;
+    case JEFFE_TYPETAG_I32: holder.i32 = static_cast<int32_t>(v.v & PAYLOAD_MASK); break;
+    case JEFFE_TYPETAG_U32: holder.u32 = static_cast<uint32_t>(v.v & PAYLOAD_MASK); break;
+    case JEFFE_TYPETAG_F32:
+    {
+        union
+        {
+            uint32_t y;
+            float x;
+        } pun;
+        pun.y = static_cast<uint32_t>(v.v & PAYLOAD_MASK);
+        holder.f32 = pun.x;
+        break;
+    }
+    case JEFFE_TYPETAG_F64: holder.f64 = *reinterpret_cast<double *>(ptr_uncompress(v.v & PAYLOAD_MASK)); break;
+    case JEFFE_TYPETAG_I64: holder.i64 = *reinterpret_cast<int64_t *>(ptr_uncompress(v.v & PAYLOAD_MASK)); break;
+    case JEFFE_TYPETAG_U64: holder.u64 = *reinterpret_cast<uint64_t *>(ptr_uncompress(v.v & PAYLOAD_MASK)); break;
+    case JEFFE_TYPETAG_PTR: holder.ptr = ptr_uncompress(v.v & PAYLOAD_MASK); break;
+    case JEFFE_TYPETAG_CSTRUCT: holder.cstruct = ptr_uncompress(v.v & PAYLOAD_MASK); break;
+    case JEFFE_TYPETAG_ERRNUM:
+        holder.errnum.errnum = static_cast<int8_t>((v.v >> 48) & 0xFF);
+        holder.errnum.fn = reinterpret_cast<jeffe_strerror_fn>(ptr_uncompress(v.v & PAYLOAD_MASK));
+        break;
+    case JEFFE_TYPETAG_OBJ:
+    {
+        void **userdata_ptr = reinterpret_cast<void **>(ptr_uncompress(v.v & PAYLOAD_MASK));
+        objmeta *meta = objmeta::from_userdata(userdata_ptr);
+        holder.obj.userdata = userdata_ptr;
+        holder.obj.fn = meta->class_fn();
+        break;
+    }
+    }
+    return holder;
 }

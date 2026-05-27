@@ -32,8 +32,7 @@ enum jeffe_typetag {
 };
 ```
 
-## C ABI Implementation
-### Inline Values
+## Inline Values
 Inline values have their payload stored directly in the last 48 bits of the `jeffe_value`.
 
 These types include:
@@ -44,10 +43,8 @@ These types include:
 - U32
 - F32 (type-punned into a u32)
 - Ptr (after 48 bit compression)
-
-
-### Heap Values
-Heap values have their paylaods stored on the heap, with the resulting pointer stored in the last 48 bits of `jeffe_value`. Performance is worse than for inline values because:
+## Heap Values
+Heap values have their payloads stored on the heap, with the resulting pointer stored in the last 48 bits of `jeffe_value`. Performance is worse than for inline values because:
 1. allocations are required
 2. copies require a `memcpy` on top of just copying the `jeffe_value`'s 64 bits
 3. pointer-chasing hurts cache performance.
@@ -58,18 +55,17 @@ These types include:
 - I64
 - U64
 - F64
-
-### CStructs
+## CStructs
 Cstructs are designed to store heap data owned by the value. See [[Operators#Core]] for more details about copying and destruction.
 
 Use CStruct when you want to have an "owning" block of data that has C semantics (e.g. copying by value).
 
-### ErrNums
+## ErrNums
 ErrNums wrap a POSIX-style error code + error domain. They are constructed with an `i8` representing the error code, and a `jeffe_strerror_fn` that returns a string representation of the error code. The returned string should have a global lifetime.
 
 In this way, error codes can overlap without ambiguity, since each `jeffe_strerror_fn` is unique per error domain.
 
-### Objects
+## Objects
 `jeffe-lang` uses a single function scheme for declaring new classes. The signature is:
 
 ```c
@@ -95,5 +91,7 @@ To create a new object, the `jeffe-lang` implementation should heap-allocate an 
 
 > ⚠️ the `objmeta` field is implementation private. It may contain extra fields to enable memory management and other things (e.g. refcounts, GC trackers)
 
-The constructor is then executed via `class_fn(&userdata, JEFFE_OP_CTOR, 0, NULL)`.
+The constructor is then executed via 
+```c
+class_fn(&userdata, JEFFE_OP_CTOR, 0, NULL)
 ```

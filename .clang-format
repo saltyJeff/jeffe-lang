@@ -6,3 +6,4 @@ EmptyLineBeforeAccessModifier: Never
 AllowShortCaseLabelsOnASingleLine: true
 Cpp11BracedListStyle: true
 IndentExternBlock: NoIndent
+BreakBeforeBraces: Allman

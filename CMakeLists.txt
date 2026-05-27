@@ -6,11 +6,11 @@ include(cmake/c_with_classes_mode.cmake)
 add_library(jeffe-lang
         inc/jeffe_lang.h
         src/value.cpp
-        src/internal.hpp
         src/core_ops.cpp
         src/value.hpp
         src/cstruct.hpp
-        src/objmeta.hpp)
+        src/objmeta.hpp
+        src/err.cpp)
 target_include_directories(jeffe-lang PUBLIC inc/)
 get_target_property(JEFFE_LIB_TYPE jeffe-lang TYPE)
 if(JEFFE_LIB_TYPE STREQUAL "STATIC_LIBRARY")

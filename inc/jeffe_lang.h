@@ -1,5 +1,6 @@
 #ifndef JEFFE_LANG_H_
 #define JEFFE_LANG_H_
+#include <cstdint>
 #include <stdbool.h>
 #include <uchar.h>
 
@@ -160,6 +161,41 @@ enum jeffe_typetag
  */
 JEFFE_API enum jeffe_typetag jeffe_value_type(struct jeffe_value v);
 
+struct jeffe_value_holder
+{
+    enum jeffe_typetag typetag;
+    union
+    {
+        char32_t c;
+        bool b;
+        int32_t i32;
+        uint32_t u32;
+        float f32;
+        double f64;
+        int64_t i64;
+        uint64_t u64;
+        void *ptr;
+        void *cstruct;
+        struct
+        {
+            int8_t errnum;
+            jeffe_strerror_fn fn;
+        } errnum;
+        struct
+        {
+            void **userdata;
+            jeffe_class_fn fn;
+        } obj;
+    };
+};
+/**
+ * Gets the data held in a jeffe_value.
+ * Use jeffe_value_type() to determine which member to access.
+ * @param v the value
+ * @return the held data
+ */
+JEFFE_API struct jeffe_value_holder jeffe_value_held_data(struct jeffe_value v);
+
 /**
  * Represents an operation passed to a class definition function.
  */
@@ -167,6 +203,8 @@ enum jeffe_op
 {
     JEFFE_OP_CTOR,
     JEFFE_OP_DTOR,
+    JEFFE_OP_GET,
+    JEFFE_OP_SET,
 };
 /**
  * Destroys a jeffe_value.
@@ -176,19 +214,17 @@ enum jeffe_op
 JEFFE_API void jeffe_destroy(struct jeffe_value val);
 /**
  * Performs a = rhs.
- * For objects, increments strongcount.
- * For other types, makes a copy.
  * @param rhs
  * @return the assigned value
  */
-JEFFE_API struct jeffe_value jeffe_assign(struct jeffe_value rhs);
+JEFFE_API struct jeffe_value jeffe_copy(struct jeffe_value rhs);
 /**
  * Performs obj[key]
  * @param obj the object
  * @param key the key
  * @return the resulting value
  */
-JEFFE_API struct jeffe_value jeffe_value_get(struct jeffe_value obj, struct jeffe_value key);
+JEFFE_API struct jeffe_value jeffe_get(struct jeffe_value obj, struct jeffe_value key);
 /**
  * Performs obj[key] = val
  * @param obj the object
@@ -196,8 +232,13 @@ JEFFE_API struct jeffe_value jeffe_value_get(struct jeffe_value obj, struct jeff
  * @param val the value to set
  * @return the resulting value (typically nil)
  */
-JEFFE_API struct jeffe_value jeffe_value_set(struct jeffe_value obj, struct jeffe_value key, struct jeffe_value val);
+JEFFE_API struct jeffe_value jeffe_set(struct jeffe_value obj, struct jeffe_value key, struct jeffe_value val);
 
+enum jeffe_builtin_errno
+{
+    JEFFE_ERRNO_UNDEFINED
+};
+JEFFE_API const char *jeffe_builtin_strerror(int8_t err);
 #ifdef __cplusplus
 }
 #endif
