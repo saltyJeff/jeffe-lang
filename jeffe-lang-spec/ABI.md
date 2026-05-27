@@ -1,62 +1,57 @@
 ## Overview & Memory Topography
 
-Every value in the language can be stored by an `jeffe_lang::Value`, which transparently wraps a `u64`.
+Every value in the language can be stored by a `struct jeffe_value`, which transparently wraps a `uint64_t`.
 
-The `u64` is divided as follows:
-- top 8 bits: `TypeTag` enum
+The `uint64_t` is divided as follows:
+- top 8 bits: `enum jeffe_typetag`
 - next 8 bits: extended data
 - bottom 48 bits: payload
 
 The following rules determine how various values are stored:
 - **Inline Primitives ($\le 48$ bits):** Values fitting within 48 bits are stored directly in the lower bits of the container. Unused bits in this field must be zeroed or sign-extended according to the underlying primitive's semantic type.
-	- **Pointer Sign-Extension:** Virtual addresses in modern 64-bit architectures utilize a 48-bit address space, canonicalized by propagating bit 47 across the remaining upper 16 bits. When extracting pointers from an `Value`, implementations must manually sign-extend the 48-bit payload back to a full 64-bit address space before dereferencing
+	- **Pointer Sign-Extension:** Virtual addresses in modern 64-bit architectures utilize a 48-bit address space, canonicalized by propagating bit 47 across the remaining upper 16 bits. When extracting pointers from a `struct jeffe_value`, implementations must manually sign-extend the 48-bit payload back to a full 64-bit address space before dereferencing
 - **Heap-Allocated Primitives ($> 48$ bits):** Values exceeding 48 bits are allocated via the heap provider. The resulting 64-bit address is truncated to its lower 48 bits for storage.
 ## Type Tags
 The `TypeTag` is defined as
 
-```rust
-#[repr(u8)]
-pub enum TypeTag {
-    Nil      = 0x00,
-    Char     = 0x01,
-    Bool     = 0x02,
-    I32      = 0x03,
-    U32      = 0x04,
-    I64      = 0x05,
-    U64      = 0x06,
-    F32      = 0x07,
-    F64      = 0x08,
-    Ptr      = 0x09,
-    CStruct  = 0x0A,
-    ErrNum   = 0x0B,
-    Obj      = 0x0C,
-}
+```c
+enum jeffe_typetag {
+    JEFFE_TYPETAG_NIL      = 0x00,
+    JEFFE_TYPETAG_CHAR     = 0x01,
+    JEFFE_TYPETAG_BOOL     = 0x02,
+    JEFFE_TYPETAG_I32      = 0x03,
+    JEFFE_TYPETAG_U32      = 0x04,
+    JEFFE_TYPETAG_I64      = 0x05,
+    JEFFE_TYPETAG_U64      = 0x06,
+    JEFFE_TYPETAG_F32      = 0x07,
+    JEFFE_TYPETAG_F64      = 0x08,
+    JEFFE_TYPETAG_PTR      = 0x09,
+    JEFFE_TYPETAG_CSTRUCT  = 0x0A,
+    JEFFE_TYPETAG_ERRNUM   = 0x0B,
+    JEFFE_TYPETAG_OBJ      = 0x0C,
+};
 ```
 
-## Rust ABI Implementation
+## C ABI Implementation
 
-```rust
+```c
+#include <stdint.h>
+
 // helper
-#[inline(always)]
-pub fn canonicalize_ptr(payload: u64) -> u64
-{ 
-	(((payload << 16) as i64) >> 16) as u64 
+static inline uint64_t canonicalize_ptr(uint64_t payload) { 
+	return (uint64_t)(((int64_t)(payload << 16)) >> 16);
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[repr(transparent)]
-pub struct Value(pub u64);
+struct jeffe_value {
+    uint64_t v;
+};
 
-impl Value {
-    #[inline(always)]
-    pub fn get_tag(&self) -> u8 {
-        (self.0 >> 56) as u8
-    }
+static inline uint8_t jeffe_value_type(struct jeffe_value val) {
+    return (uint8_t)(val.v >> 56);
+}
 
-    #[inline(always)]
-    pub fn get_payload(&self) -> u64 {
-        self.0 & 0x0000_FFFF_FFFF_FFFF
-    }
+static inline uint64_t jeffe_value_payload(struct jeffe_value val) {
+    return val.v & 0x0000FFFFFFFFFFFFULL;
 }
 ```
 
@@ -65,40 +60,19 @@ impl Value {
 Data exchange between native types and `Value` relies on standard `From` and `TryFrom` trait implementations.
 ### Inline Primitive Example: `I32`
 
-The following snippet demonstrates the layout for types matching or falling below the 48-bit immediate threshold. This exact boilerplates repeats for `U32`, `Bool`, `Char`, and `F32` types using their corresponding tags. For `Nil`, `new()` takes no arguments, and `val()` returns `()`.
+The following snippet demonstrates the layout for types matching or falling below the 48-bit immediate threshold. This exact boilerplates repeats for `U32`, `Bool`, `Char`, and `F32` types using their corresponding tags. For `Nil`, `new()` takes no arguments, and `val()` returns `void`.
 
-```rust
-pub struct I32(pub Value);
-
-impl From<I32> for Value {
-    #[inline]
-    fn from(wrapper: I32) -> Self {
-        wrapper.0
-    }
+```c
+struct jeffe_value jeffe_value_i32(int32_t val) {
+    uint64_t tag = ((uint64_t)JEFFE_TYPETAG_I32) << 56;
+    uint64_t payload = ((uint64_t)(uint32_t)val) & 0x0000FFFFFFFFFFFFULL;
+    struct jeffe_value v;
+    v.v = tag | payload;
+    return v;
 }
 
-impl TryFrom<Value> for I32 {
-    type Error = &'static str;
-    #[inline]
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        if value.get_tag() == TypeTag::I32 as u8 {
-            Ok(I32(value))
-        } else {
-            Err("ABI Type Mismatch")
-        }
-    }
-}
-
-impl I32 {
-    pub fn new(val: i32) -> Self {
-        let tag = (TypeTag::I32 as u64) << 56;
-        let payload = (val as u64) & 0x0000_FFFF_FFFF_FFFF;
-        I32(Value(tag | payload))
-    }
-
-    pub fn val(&self) -> i32 {
-        self.0.get_payload() as i32
-    }
+int32_t jeffe_i32_val(struct jeffe_value val) {
+    return (int32_t)jeffe_value_payload(val);
 }
 ```
 
@@ -106,51 +80,27 @@ impl I32 {
 
 Types exceeding 48 bits must manage a heap allocation. This implementation structure must be repeated for `U64` and `F64`.
 
+```c
+#include <stdlib.h>
 
-```rust
-pub struct I64(pub Value);
-
-impl From<I64> for Value {
-    #[inline]
-    fn from(wrapper: I64) -> Self {
-        wrapper.0
-    }
+struct jeffe_value jeffe_value_i64(int64_t val) {
+    int64_t *boxed = (int64_t *)malloc(sizeof(int64_t));
+    *boxed = val;
+    uint64_t tag = ((uint64_t)JEFFE_TYPETAG_I64) << 56;
+    uint64_t payload = ((uint64_t)boxed) & 0x0000FFFFFFFFFFFFULL;
+    struct jeffe_value v;
+    v.v = tag | payload;
+    return v;
 }
 
-impl TryFrom<Value> for I64 {
-    type Error = &'static str;
-
-    #[inline]
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        if value.get_tag() == TypeTag::I64 as u8 {
-            Ok(I64(value))
-        } else {
-            Err("ABI Type Mismatch")
-        }
-    }
+int64_t jeffe_i64_val(struct jeffe_value val) {
+    uint64_t ptr_bits = canonicalize_ptr(jeffe_value_payload(val));
+    return *(int64_t *)ptr_bits;
 }
 
-impl I64 {
-    pub fn new(val: i64) -> Self {
-        let boxed = Box::into_raw(Box::new(val)) as u64;
-        let tag = (TypeTag::I64 as u64) << 56;
-        let payload = boxed & 0x0000_FFFF_FFFF_FFFF;
-        I64(Value(tag | payload))
-    }
-
-    pub fn val(&self) -> i64 {
-        let ptr_bits = canonicalize_ptr(self.0.get_payload());
-        unsafe { *(ptr_bits as *const i64) }
-    }
-}
-
-impl Drop for I64 {
-    fn drop(&mut self) {
-        let ptr_bits = canonicalize_ptr(self.0.get_payload());
-        unsafe {
-            let _ = Box::from_raw(ptr_bits as *mut i64);
-        }
-    }
+void jeffe_i64_drop(struct jeffe_value val) {
+    uint64_t ptr_bits = canonicalize_ptr(jeffe_value_payload(val));
+    free((void *)ptr_bits);
 }
 ```
 
@@ -158,52 +108,26 @@ impl Drop for I64 {
 
 `CStruct` encapsulates unstructured heap blocks managed via standard system allocators (`malloc`/`free`). Unlike basic raw pointers, `CStruct` retains ownership of its target allocation and frees it automatically when the instance drops out of scope.
 
-```rust
-pub struct CStruct(pub Value);
-
-impl From<CStruct> for Value {
-    #[inline]
-    fn from(wrapper: CStruct) -> Self {
-        wrapper.0
+```c
+struct jeffe_value jeffe_value_cstruct(size_t struct_sz) {
+    void *raw_ptr = malloc(struct_sz);
+    if (!raw_ptr) {
+        // Handle allocation failure
     }
+    
+    uint64_t tag = ((uint64_t)JEFFE_TYPETAG_CSTRUCT) << 56;
+    uint64_t payload = ((uint64_t)raw_ptr) & 0x0000FFFFFFFFFFFFULL;
+    struct jeffe_value v;
+    v.v = tag | payload;
+    return v;
 }
 
-impl TryFrom<Value> for CStruct {
-    type Error = &'static str;
-
-    #[inline]
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        if value.get_tag() == TypeTag::CStruct as u8 {
-            Ok(CStruct(value))
-        } else {
-            Err("ABI Type Mismatch")
-        }
-    }
+void *jeffe_cstruct_val(struct jeffe_value val) {
+    return (void *)canonicalize_ptr(jeffe_value_payload(val));
 }
 
-impl CStruct {
-    pub fn new(struct_sz: usize) -> Self {
-        unsafe {
-            let raw_ptr = libc::malloc(struct_sz);
-            assert!(!raw_ptr.is_null(), "Allocation failure");
-            
-            let tag = (TypeTag::CStruct as u64) << 56;
-            let payload = (raw_ptr as u64) & 0x0000_FFFF_FFFF_FFFF;
-            CStruct(Value(tag | payload))
-        }
-    }
-
-    pub fn val(&self) -> *mut libc::c_void {
-        canonicalize_ptr(self.0.get_payload()) as *mut libc::c_void
-    }
-}
-
-impl Drop for CStruct {
-    fn drop(&mut self) {
-        unsafe {
-            libc::free(self.val());
-        }
-    }
+void jeffe_cstruct_drop(struct jeffe_value val) {
+    free(jeffe_cstruct_val(val));
 }
 ```
 
@@ -211,194 +135,130 @@ impl Drop for CStruct {
 
 The `ErrNum` construct maps POSIX-style error codes (`errno`) to an evaluation function pointer. The error code is stored in the extended data region, and the strerror function is stored in the payload. The strerror's returned string should have global lifetime as a string literal.
 
-```rust
-pub type StrerrorFn = extern "C" fn(err: i8) -> *const libc::c_char;
+```c
+typedef const char *(*jeffe_strerror_fn)(int8_t err);
 
-pub struct ErrNum(pub Value);
-
-impl From<ErrNum> for Value {
-    #[inline]
-    fn from(wrapper: ErrNum) -> Self {
-        wrapper.0
-    }
+struct jeffe_value jeffe_value_errnum(int8_t errnum, jeffe_strerror_fn strerror_fn) {
+    uint64_t tag = ((uint64_t)JEFFE_TYPETAG_ERRNUM) << 56;
+    uint64_t err_byte = ((uint64_t)(uint8_t)errnum) << 48;
+    uint64_t fn_payload = ((uint64_t)strerror_fn) & 0x0000FFFFFFFFFFFFULL;
+    
+    struct jeffe_value v;
+    v.v = tag | err_byte | fn_payload;
+    return v;
 }
 
-impl TryFrom<Value> for ErrNum {
-    type Error = &'static str;
-
-    #[inline]
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        if value.get_tag() == TypeTag::ErrNum as u8 {
-            Ok(ErrNum(value))
-        } else {
-            Err("ABI Type Mismatch")
-        }
-    }
+int8_t jeffe_errnum_errnum(struct jeffe_value val) {
+    return (int8_t)((val.v >> 48) & 0xFF);
 }
 
-impl ErrNum {
-    pub fn new(errnum: i8, strerror_fn: StrerrorFn) -> Self {
-        let tag = (TypeTag::ErrNum as u64) << 56;
-        let err_byte = ((errnum as u8) as u64) << 48;
-        let fn_payload = (strerror_fn as u64) & 0x0000_FFFF_FFFF_FFFF;
-        
-        ErrNum(Value(tag | err_byte | fn_payload))
-    }
+jeffe_strerror_fn jeffe_errnum_strerror_fn(struct jeffe_value val) {
+    uint64_t fn_bits = canonicalize_ptr(val.v & 0x0000FFFFFFFFFFFFULL);
+    return (jeffe_strerror_fn)fn_bits;
+}
 
-    pub fn errnum(&self) -> i8 {
-        ((self.0.0 >> 48) & 0xFF) as i8
-    }
-
-    pub fn strerror_fn(&self) -> StrerrorFn {
-        let fn_bits = canonicalize_ptr(self.0.0 & 0x0000_FFFF_FFFF_FFFF);
-        unsafe { std::mem::transmute(fn_bits) }
-    }
-
-    pub fn value(&self) -> *const libc::c_char {
-        let func = self.strerror_fn();
-        func(self.errnum())
-    }
+const char *jeffe_errnum_value(struct jeffe_value val) {
+    jeffe_strerror_fn func = jeffe_errnum_strerror_fn(val);
+    return func(jeffe_errnum_errnum(val));
 }
 ```
 
 ### Objects
 
 `jeffe-lang` uses a single function scheme for declaring new classes. The signature is:
-```rust
-pub type ClassFn = unsafe extern "C" fn(
-    userdata: *mut *mut libc::c_void, 
-    op: i32, 
-    nargs: usize, 
-    args: *const Value
-) -> Value;
+```c
+typedef struct jeffe_value (*jeffe_class_fn)(
+    void **userdata, 
+    int op, 
+    size_t nargs, 
+    const struct jeffe_value *args
+);
 ```
 
-Negative values of `op` are reserved for user extensions. Positive values are part of the ABI specification as part of enum `jeffe_lang::Op`:
-```rust
-#[repr(i32)]
-pub enum Op
-{
-	Ctor,
-	Dtor
-}
+Negative values of `op` are reserved for user extensions. Positive values are part of the ABI specification as part of enum `jeffe_op`:
+```c
+enum jeffe_op {
+    JEFFE_OP_CTOR,
+    JEFFE_OP_DTOR
+};
 ```
 
 *For a full list of operators, see [[Operators]]*
-#### Implementation Details
+###### Implementation Details
 > ⚠️this section is not part of the ABI contract
 
 To better explain how Objects are created, this document refers to the following implementation-dependent struct.
 
-```rust
-#[repr(C)]
-struct ObjMeta {
-    class_fn: ClassFn,
-    userdata: *mut libc::c_void,
-    thread_id: u64, // id of owning thread
-    strong_count: u32, // strong count in the owning thread
-    weak_count: std::sync::atomic::AtomicU16, // weak count across all threads
-    atomic_strong: std::sync::atomic::AtomicU16, // strong count in other threads
-}
+```c
+#include <stdatomic.h>
+
+struct jeffe_obj_meta {
+    jeffe_class_fn class_fn;
+    void *userdata;
+    uint64_t thread_id; // id of owning thread
+    uint32_t strong_count; // strong count in the owning thread
+    atomic_uint_least16_t weak_count; // weak count across all threads
+    atomic_uint_least16_t atomic_strong; // strong count in other threads
+};
 ```
 
 ### Object Implementation
 
-```rust
-pub struct Object(pub Value);
+```c
+struct jeffe_value jeffe_value_obj(jeffe_class_fn class_fn, size_t nargs, const struct jeffe_value *args) {
+    // 1. Allocate control structure
+    struct jeffe_obj_meta *meta_ptr = malloc(sizeof(struct jeffe_obj_meta));
+    meta_ptr->class_fn = class_fn;
+    meta_ptr->userdata = NULL;
+    meta_ptr->thread_id = 0;
+    meta_ptr->strong_count = 1;
+    atomic_init(&meta_ptr->weak_count, 0);
+    atomic_init(&meta_ptr->atomic_strong, 0);
 
-impl From<Object> for Value {
-    #[inline]
-    fn from(wrapper: Object) -> Self {
-        wrapper.0
+    // 2. Invoke constructor operation
+    struct jeffe_value ctor_res = class_fn(
+        &meta_ptr->userdata,
+        JEFFE_OP_CTOR,
+        nargs,
+        args
+    );
+
+    // 3. Inspect instantiation success via error opcode check (Op::IsErr mapped to integer, e.g. some positive OP)
+    // NOTE: assuming JEFFE_OP_IS_ERR exists.
+    struct jeffe_value is_err_res = class_fn(
+        &meta_ptr->userdata,
+        /* JEFFE_OP_IS_ERR */ 2, // example opcode
+        0,
+        NULL
+    );
+
+    // Abort and unwind allocation if an error flag is confirmed
+    // (psuedocode: if is_err_res implies error)
+    if (jeffe_value_type(is_err_res) == JEFFE_TYPETAG_BOOL && /* is_true */ 0) {
+        free(meta_ptr);
+        return ctor_res;
     }
+
+    // 4. Pack control block address into an Object-tagged Value container
+    uint64_t tag = ((uint64_t)JEFFE_TYPETAG_OBJ) << 56;
+    uint64_t payload = ((uint64_t)meta_ptr) & 0x0000FFFFFFFFFFFFULL;
+    struct jeffe_value v;
+    v.v = tag | payload;
+    return v;
 }
 
-impl TryFrom<Value> for Object {
-    type Error = &'static str;
+void jeffe_obj_drop(struct jeffe_value val) {
+    struct jeffe_obj_meta *meta_ptr = (struct jeffe_obj_meta *)canonicalize_ptr(jeffe_value_payload(val));
+    
+    // Invoke the class destructor via dispatch handler
+    meta_ptr->class_fn(
+        &meta_ptr->userdata,
+        JEFFE_OP_DTOR,
+        0,
+        NULL
+    );
 
-    #[inline]
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        if value.get_tag() == TypeTag::Obj as u8 {
-            Ok(Object(value))
-        } else {
-            Err("ABI Type Mismatch")
-        }
-    }
+    // Deallocate control block memory
+    free(meta_ptr);
 }
-
-impl Object {
-    pub fn new(class_fn: ClassFn, args: &mut [Value]) -> Result<Self, Value> {
-        // 1. Allocate control structure
-        let meta_ptr = Box::into_raw(Box::new(ObjMeta {
-            class_fn,
-            userdata: std::ptr::null_mut(),
-            thread_id: 0, 
-            strong_count: 1,
-            weak_count: std::sync::atomic::AtomicU16::new(0),
-            atomic_strong: std::sync::atomic::AtomicU16::new(0),
-        }));
-
-        unsafe {
-            // 2. Invoke constructor operation
-            let ctor_res = class_fn(
-                &mut (*meta_ptr).userdata,
-                Op::Ctor as i32,
-                args.len(),
-                args.as_ptr(),
-            );
-
-            // 3. Inspect instantiation success via error opcode check
-            let is_err_res = class_fn(
-                &mut (*meta_ptr).userdata,
-                Op::IsErr as i32,
-                0,
-                std::ptr::null_mut(),
-            );
-
-            // Abort and unwind allocation if an error flag is confirmed
-            if is_err_res.is_error()
-                let _ = Box::from_raw(meta_ptr);
-                return Err(ctor_res);
-            }
-
-            // 4. Pack control block address into an Object-tagged Value container
-            let tag = (TypeTag::Obj as u64) << 56;
-            let payload = (meta_ptr as u64) & 0x0000_FFFF_FFFF_FFFF;
-            Ok(Object(Value(tag | payload)))
-        }
-    }
-
-    #[inline]
-    pub fn meta(&self) -> *mut libc::c_void {
-        canonicalize_ptr(self.0.get_payload()) as *mut libc::c_void
-    }
-
-    #[inline]
-    pub fn classfn(&self) -> ClassFn {
-        unsafe { (*(self.meta() as *mut ObjMeta)).class_fn }
-    }
-
-    #[inline]
-    pub fn userdata(&self) -> *mut libc::c_void {
-        unsafe { (*(self.meta() as *mut ObjMeta)).userdata }
-    }
-}
-
-impl Drop for Object {
-    fn drop(&mut self) {
-        unsafe {
-            let meta_ptr = self.meta() as *mut ObjMeta;
-            
-            // Invoke the class destructor via dispatch handler
-            ((*meta_ptr).class_fn)(
-                &mut (*meta_ptr).userdata,
-                Op::Dtor as i32,
-                0,
-                std::ptr::null_mut(),
-            );
-
-            // Deallocate control block memory
-            let _ = Box::from_raw(meta_ptr);
-        }
-    }
-}
+```
