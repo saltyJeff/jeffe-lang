@@ -33,3 +33,5 @@ Similarly, do not make mega kitchen sink files.
 Use DRY principles but not to excess with super macros. Write as an experienced systems programmer writing maintainable code, not a vibe-coding web dev. Do not leave excessively detailed comments/reasoning traces. Except that terse declaration documentation comments are acceptable. Long stepped comments are likely better served by breaking the function up into smaller ones.
 
 Use C++ style casts over C-style casts
+
+Google antigravity IDE is now bugged and cant run cmake. Tell me and I can run the code.

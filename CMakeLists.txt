@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(jeffe-lang)
-
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_C_STANDARD 99)
 include(cmake/c_with_classes_mode.cmake)
 
 add_library(jeffe-lang
@@ -11,7 +12,9 @@ add_library(jeffe-lang
         src/cstruct.hpp
         src/objmeta.hpp
         src/err.cpp
-        src/meta_ops.cpp)
+        src/meta_ops.cpp
+        src/math_ops.cpp
+        src/cmp_op.cpp)
 target_include_directories(jeffe-lang PUBLIC inc/)
 get_target_property(JEFFE_LIB_TYPE jeffe-lang TYPE)
 if(JEFFE_LIB_TYPE STREQUAL "STATIC_LIBRARY")

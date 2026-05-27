@@ -25,7 +25,7 @@ Users should set their compiler's settings so that their `classfn` handles each 
 - //sub
 - mul
 - div
-- modd (two ds because mod is a seserved word)
+- mod
 ### Reverse Arithmetic
 - radd
 - rsub

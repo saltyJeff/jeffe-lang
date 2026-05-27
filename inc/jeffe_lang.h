@@ -212,7 +212,24 @@ enum jeffe_op
     JEFFE_OP_GET,
     JEFFE_OP_SET,
     JEFFE_OP_IS_ERR,
-    JEFFE_OP_CLASSNAME
+    JEFFE_OP_CLASSNAME,
+    JEFFE_OP_ADD,
+    JEFFE_OP_SUB,
+    JEFFE_OP_MUL,
+    JEFFE_OP_DIV,
+    JEFFE_OP_MOD,
+    JEFFE_OP_RADD,
+    JEFFE_OP_RSUB,
+    JEFFE_OP_RMUL,
+    JEFFE_OP_RDIV,
+    JEFFE_OP_RMOD,
+    JEFFE_OP_LOG_NOT,
+    JEFFE_OP_SHL,
+    JEFFE_OP_SHR,
+    JEFFE_OP_BIT_AND,
+    JEFFE_OP_BIT_OR,
+    JEFFE_OP_BIT_NOT,
+    JEFFE_OP_CMP
 };
 /**
  * Destroys a jeffe_value.
@@ -255,9 +272,149 @@ JEFFE_API bool jeffe_is_err(struct jeffe_value v);
  */
 JEFFE_API const char *jeffe_typename(struct jeffe_value v);
 
+/**
+ * Performs a + b.
+ * @param a the left-hand side value
+ * @param b the right-hand side value
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_add(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs a - b.
+ * @param a the left-hand side value
+ * @param b the right-hand side value
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_sub(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs a * b.
+ * @param a the left-hand side value
+ * @param b the right-hand side value
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_mul(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs a / b.
+ * @param a the left-hand side value
+ * @param b the right-hand side value
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_div(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs a % b.
+ * @param a the left-hand side value
+ * @param b the right-hand side value
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_mod(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs reverse addition: b + a.
+ * Used as fallback for object types.
+ * @param a the object value
+ * @param b the other value
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_radd(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs reverse subtraction: b - a.
+ * Used as fallback for object types.
+ * @param a the object value
+ * @param b the other value
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_rsub(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs reverse multiplication: b * a.
+ * Used as fallback for object types.
+ * @param a the object value
+ * @param b the other value
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_rmul(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs reverse division: b / a.
+ * Used as fallback for object types.
+ * @param a the object value
+ * @param b the other value
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_rdiv(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs reverse modulo: b % a.
+ * Used as fallback for object types.
+ * @param a the object value
+ * @param b the other value
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_rmod(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs logical NOT: !a.
+ * @param a the value
+ * @return the negated boolean value
+ */
+JEFFE_API struct jeffe_value jeffe_log_not(struct jeffe_value a);
+
+/**
+ * Performs bitwise shift left: a << b.
+ * @param a the value to shift
+ * @param b the number of positions to shift by
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_shl(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs bitwise shift right: a >> b.
+ * @param a the value to shift
+ * @param b the number of positions to shift by
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_shr(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs bitwise AND: a & b.
+ * @param a the left-hand side value
+ * @param b the right-hand side value
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_bit_and(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs bitwise OR: a | b.
+ * @param a the left-hand side value
+ * @param b the right-hand side value
+ * @return the resulting value
+ */
+JEFFE_API struct jeffe_value jeffe_bit_or(struct jeffe_value a, struct jeffe_value b);
+
+/**
+ * Performs bitwise NOT: ~a.
+ * @param a the value
+ * @return the bitwise-complemented value
+ */
+JEFFE_API struct jeffe_value jeffe_bit_not(struct jeffe_value a);
+
+/**
+ * Performs comparative comparison: a <=> b.
+ * @param a the left-hand side value
+ * @param b the right-hand side value
+ * @return a positive i32 value if a > b, negative if a < b, or 0 if equal
+ */
+JEFFE_API struct jeffe_value jeffe_cmp(struct jeffe_value a, struct jeffe_value b);
+
 enum jeffe_builtin_errno
 {
-    JEFFE_ERRNO_UNDEFINED
+    JEFFE_ERRNO_UNDEFINED,
+    JEFFE_ERRNO_NOTIMPL
 };
 JEFFE_API const char *jeffe_builtin_strerror(int8_t err);
 #ifdef __cplusplus
