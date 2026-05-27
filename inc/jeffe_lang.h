@@ -17,9 +17,9 @@
 #endif
 #endif
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <uchar.h>
-#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -160,6 +160,13 @@ enum jeffe_typetag
  */
 JEFFE_API enum jeffe_typetag jeffe_value_typetag(struct jeffe_value v);
 
+/**
+ * Returns the string name of a typetag
+ * @param tag the typetag
+ * @return the typetag's name
+ */
+JEFFE_API const char *jeffe_strtypetag(enum jeffe_typetag tag);
+
 struct jeffe_value_holder
 {
     enum jeffe_typetag typetag;
@@ -204,6 +211,8 @@ enum jeffe_op
     JEFFE_OP_DTOR,
     JEFFE_OP_GET,
     JEFFE_OP_SET,
+    JEFFE_OP_IS_ERR,
+    JEFFE_OP_CLASSNAME
 };
 /**
  * Destroys a jeffe_value.
@@ -232,6 +241,19 @@ JEFFE_API struct jeffe_value jeffe_get(struct jeffe_value obj, struct jeffe_valu
  * @return the resulting value (typically nil)
  */
 JEFFE_API struct jeffe_value jeffe_set(struct jeffe_value obj, struct jeffe_value key, struct jeffe_value val);
+/**
+ * Checks if the value should be interpreted as an error.
+ * True if the value is an errnum, or an object which returns true for JEFFE_OP_IS_ERR
+ * @param v the value
+ * @return true if the value is an error
+ */
+JEFFE_API bool jeffe_is_err(struct jeffe_value v);
+/**
+ * Returns the typename of an object
+ * @param v the object
+ * @return the class name
+ */
+JEFFE_API const char *jeffe_typename(struct jeffe_value v);
 
 enum jeffe_builtin_errno
 {

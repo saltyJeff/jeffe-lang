@@ -31,4 +31,11 @@ public:
     {
         return reinterpret_cast<objmeta *>((char *)userdata_ptr - offsetof(objmeta, userdata));
     }
+    /**
+     * @warning: does not check that val is an object
+     */
+    static objmeta *from_value(jeffe_value val)
+    {
+        return from_userdata(reinterpret_cast<void **>(ptr_uncompress(val.v & PAYLOAD_MASK)));
+    }
 };

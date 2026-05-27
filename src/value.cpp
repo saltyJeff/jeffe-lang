@@ -105,12 +105,31 @@ jeffe_value_holder jeffe_value_held_data(jeffe_value v)
         break;
     case JEFFE_TYPETAG_OBJ:
     {
-        void **userdata_ptr = reinterpret_cast<void **>(ptr_uncompress(v.v & PAYLOAD_MASK));
-        objmeta *meta = objmeta::from_userdata(userdata_ptr);
-        holder.obj.userdata = userdata_ptr;
+        objmeta *meta = objmeta::from_value(v);
+        holder.obj.userdata = meta->userdata_ptr();
         holder.obj.fn = meta->class_fn();
         break;
     }
     }
     return holder;
+}
+const char *jeffe_strtypetag(enum jeffe_typetag tag)
+{
+    switch (tag)
+    {
+    case JEFFE_TYPETAG_NIL: return "NIL";
+    case JEFFE_TYPETAG_CHAR: return "CHAR";
+    case JEFFE_TYPETAG_BOOL: return "BOOL";
+    case JEFFE_TYPETAG_I32: return "I32";
+    case JEFFE_TYPETAG_U32: return "U32";
+    case JEFFE_TYPETAG_F32: return "F32";
+    case JEFFE_TYPETAG_F64: return "F64";
+    case JEFFE_TYPETAG_I64: return "I64";
+    case JEFFE_TYPETAG_U64: return "U64";
+    case JEFFE_TYPETAG_PTR: return "PTR";
+    case JEFFE_TYPETAG_CSTRUCT: return "CSTRUCT";
+    case JEFFE_TYPETAG_ERRNUM: return "ERRNUM";
+    case JEFFE_TYPETAG_OBJ: return "OBJ";
+    default: return "UNKNOWN";
+    }
 }

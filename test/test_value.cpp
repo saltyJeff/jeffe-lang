@@ -1,5 +1,4 @@
-#include "doctest.h"
-#include <jeffe_lang.h>
+#include "util.hpp"
 
 TEST_CASE("value nil constructor") {
     struct jeffe_value v = jeffe_value_nil();

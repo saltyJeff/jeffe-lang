@@ -17,21 +17,22 @@ Users should set their compiler's settings so that their `classfn` handles each 
 ## Meta 
 - `is_err()`: returns a Boolean indicating whether the value should be interpreted as an error. Used to enable users to define complex errors. See [[ABI#Objecs]]
 	- returns `bool`
-- `name()`: returns a `const char *` indicating the name of the class.
-## Arithmetic
+- `classname()`: returns a `const char *` indicating the name of the class.
+## Mathematical
+### Arithmetic
 - `add(other: struct jeffe_value)`: performs `a + other`
 	- returns the result
 - //sub
 - mul
 - div
 - modd (two ds because mod is a seserved word)
-## Reverse Arithmetic
+### Reverse Arithmetic
 - radd
 - rsub
 - rmul
 - rdiv
 - rmodd
-## Logical/Bitwise
+### Logical/Bitwise
 - log_not
 - shl
 - shr
@@ -39,7 +40,7 @@ Users should set their compiler's settings so that their `classfn` handles each 
 - bit_or
 - bit_not
 **NOTE:** `log_and` and `log_or` are implemented in the runtime to allow for shortcircuiting
-## Compare
+### Compare
 * `cmp(other: struct jeffe_value)`: performs `a <=> other`
 	* returns negative value for less, zero for same, positive for more
 ## Iteration

@@ -9,16 +9,19 @@ void jeffe_destroy(jeffe_value val)
     {
     case JEFFE_TYPETAG_F64:
     case JEFFE_TYPETAG_I64:
-    case JEFFE_TYPETAG_U64: {
+    case JEFFE_TYPETAG_U64:
+    {
         delete ptr_uncompress(val.v & PAYLOAD_MASK);
         break;
     }
-    case JEFFE_TYPETAG_CSTRUCT: {
+    case JEFFE_TYPETAG_CSTRUCT:
+    {
         cstruct_delete(ptr_uncompress(val.v & PAYLOAD_MASK));
         break;
     }
-    case JEFFE_TYPETAG_OBJ: {
-        objmeta *meta = objmeta::from_userdata((void **)ptr_uncompress(val.v & PAYLOAD_MASK));
+    case JEFFE_TYPETAG_OBJ:
+    {
+        objmeta *meta = objmeta::from_value(val);
         meta->invoke(JEFFE_OP_DTOR, 0, NULL);
         delete meta;
         break;
@@ -59,7 +62,7 @@ jeffe_value jeffe_get(jeffe_value obj, jeffe_value key)
     {
         return jeffe_value_errnum(JEFFE_ERRNO_UNDEFINED, jeffe_builtin_strerror);
     }
-    objmeta *meta = objmeta::from_userdata((void **)ptr_uncompress(obj.v & PAYLOAD_MASK));
+    objmeta *meta = objmeta::from_value(obj);
     return meta->invoke(JEFFE_OP_GET, 1, &key);
 }
 jeffe_value jeffe_set(jeffe_value obj, jeffe_value key, jeffe_value val)
@@ -68,7 +71,7 @@ jeffe_value jeffe_set(jeffe_value obj, jeffe_value key, jeffe_value val)
     {
         return jeffe_value_errnum(JEFFE_ERRNO_UNDEFINED, jeffe_builtin_strerror);
     }
-    objmeta *meta = objmeta::from_userdata((void **)ptr_uncompress(obj.v & PAYLOAD_MASK));
+    objmeta *meta = objmeta::from_value(obj);
     jeffe_value args[2] = {key, val};
     return meta->invoke(JEFFE_OP_SET, 2, args);
 }

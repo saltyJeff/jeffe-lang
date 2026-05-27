@@ -10,7 +10,8 @@ add_library(jeffe-lang
         src/value.hpp
         src/cstruct.hpp
         src/objmeta.hpp
-        src/err.cpp)
+        src/err.cpp
+        src/meta_ops.cpp)
 target_include_directories(jeffe-lang PUBLIC inc/)
 get_target_property(JEFFE_LIB_TYPE jeffe-lang TYPE)
 if(JEFFE_LIB_TYPE STREQUAL "STATIC_LIBRARY")
