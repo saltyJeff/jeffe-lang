@@ -5,3 +5,4 @@ AccessModifierOffset: -4
 EmptyLineBeforeAccessModifier: Never
 AllowShortCaseLabelsOnASingleLine: true
 Cpp11BracedListStyle: true
+IndentExternBlock: NoIndent

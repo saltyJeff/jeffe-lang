@@ -9,7 +9,7 @@ The `uint64_t` is divided as follows:
 
 The following rules determine how various values are stored:
 - **Inline Primitives ($\le 48$ bits):** Values fitting within 48 bits are stored directly in the lower bits of the container. Unused bits in this field must be zeroed or sign-extended according to the underlying primitive's semantic type.
-	- **Pointer Sign-Extension:** Virtual addresses in modern 64-bit architectures utilize a 48-bit address space, canonicalized by propagating bit 47 across the remaining upper 16 bits. When extracting pointers from a `struct jeffe_value`, implementations must manually sign-extend the 48-bit payload back to a full 64-bit address space before dereferencing
+	- **Pointer Sign-Extension:** Modern virtual address pointers actually fit into 48 bits on x64/arm64. The pointer is sign extended, so the upper 16 bits are ignored. 
 - **Heap-Allocated Primitives ($> 48$ bits):** Values exceeding 48 bits are allocated via the heap provider. The resulting 64-bit address is truncated to its lower 48 bits for storage.
 ## Type Tags
 The `TypeTag` is defined as
@@ -33,139 +33,45 @@ enum jeffe_typetag {
 ```
 
 ## C ABI Implementation
+### Inline Values
+Inline values have their payload stored directly in the last 48 bits of the `jeffe_value`.
 
-```c
-#include <stdint.h>
+These types include:
+- Nil
+- Char
+- Bool
+- I32
+- U32
+- F32 (type-punned into a u32)
+- Ptr (after 48 bit compression)
 
-// helper
-static inline uint64_t canonicalize_ptr(uint64_t payload) { 
-	return (uint64_t)(((int64_t)(payload << 16)) >> 16);
-}
 
-struct jeffe_value {
-    uint64_t v;
-};
+### Heap Values
+Heap values have their paylaods stored on the heap, with the resulting pointer stored in the last 48 bits of `jeffe_value`. Performance is worse than for inline values because:
+1. allocations are required
+2. copies require a `memcpy` on top of just copying the `jeffe_value`'s 64 bits
+3. pointer-chasing hurts cache performance.
 
-static inline uint8_t jeffe_value_type(struct jeffe_value val) {
-    return (uint8_t)(val.v >> 56);
-}
+However, they are necessary for many APIs (e.g. POSIX results that return `size_t`). Use heap values sparingly in these cases.
 
-static inline uint64_t jeffe_value_payload(struct jeffe_value val) {
-    return val.v & 0x0000FFFFFFFFFFFFULL;
-}
-```
+These types include:
+- I64
+- U64
+- F64
 
-### Type Conversion Mechanics & Primitive Definitions
+### CStructs
+Cstructs are designed to store heap data owned by the value. See [[Operators#Core]] for more details about copying and destruction.
 
-Data exchange between native types and `Value` relies on standard `From` and `TryFrom` trait implementations.
-### Inline Primitive Example: `I32`
+Use CStruct when you want to have an "owning" block of data that has C semantics (e.g. copying by value).
 
-The following snippet demonstrates the layout for types matching or falling below the 48-bit immediate threshold. This exact boilerplates repeats for `U32`, `Bool`, `Char`, and `F32` types using their corresponding tags. For `Nil`, `new()` takes no arguments, and `val()` returns `void`.
+### ErrNums
+ErrNums wrap a POSIX-style error code + error domain. They are constructed with an `i8` representing the error code, and a `jeffe_strerror_fn` that returns a string representation of the error code. The returned string should have a global lifetime.
 
-```c
-struct jeffe_value jeffe_value_i32(int32_t val) {
-    uint64_t tag = ((uint64_t)JEFFE_TYPETAG_I32) << 56;
-    uint64_t payload = ((uint64_t)(uint32_t)val) & 0x0000FFFFFFFFFFFFULL;
-    struct jeffe_value v;
-    v.v = tag | payload;
-    return v;
-}
-
-int32_t jeffe_i32_val(struct jeffe_value val) {
-    return (int32_t)jeffe_value_payload(val);
-}
-```
-
-### Heap-Allocated Primitive Example: `I64`
-
-Types exceeding 48 bits must manage a heap allocation. This implementation structure must be repeated for `U64` and `F64`.
-
-```c
-#include <stdlib.h>
-
-struct jeffe_value jeffe_value_i64(int64_t val) {
-    int64_t *boxed = (int64_t *)malloc(sizeof(int64_t));
-    *boxed = val;
-    uint64_t tag = ((uint64_t)JEFFE_TYPETAG_I64) << 56;
-    uint64_t payload = ((uint64_t)boxed) & 0x0000FFFFFFFFFFFFULL;
-    struct jeffe_value v;
-    v.v = tag | payload;
-    return v;
-}
-
-int64_t jeffe_i64_val(struct jeffe_value val) {
-    uint64_t ptr_bits = canonicalize_ptr(jeffe_value_payload(val));
-    return *(int64_t *)ptr_bits;
-}
-
-void jeffe_i64_drop(struct jeffe_value val) {
-    uint64_t ptr_bits = canonicalize_ptr(jeffe_value_payload(val));
-    free((void *)ptr_bits);
-}
-```
-
-### Native Memory Management: `CStruct`
-
-`CStruct` encapsulates unstructured heap blocks managed via standard system allocators (`malloc`/`free`). Unlike basic raw pointers, `CStruct` retains ownership of its target allocation and frees it automatically when the instance drops out of scope.
-
-```c
-struct jeffe_value jeffe_value_cstruct(size_t struct_sz) {
-    void *raw_ptr = malloc(struct_sz);
-    if (!raw_ptr) {
-        // Handle allocation failure
-    }
-    
-    uint64_t tag = ((uint64_t)JEFFE_TYPETAG_CSTRUCT) << 56;
-    uint64_t payload = ((uint64_t)raw_ptr) & 0x0000FFFFFFFFFFFFULL;
-    struct jeffe_value v;
-    v.v = tag | payload;
-    return v;
-}
-
-void *jeffe_cstruct_val(struct jeffe_value val) {
-    return (void *)canonicalize_ptr(jeffe_value_payload(val));
-}
-
-void jeffe_cstruct_drop(struct jeffe_value val) {
-    free(jeffe_cstruct_val(val));
-}
-```
-
-### Error Subsystem: `ErrNum`
-
-The `ErrNum` construct maps POSIX-style error codes (`errno`) to an evaluation function pointer. The error code is stored in the extended data region, and the strerror function is stored in the payload. The strerror's returned string should have global lifetime as a string literal.
-
-```c
-typedef const char *(*jeffe_strerror_fn)(int8_t err);
-
-struct jeffe_value jeffe_value_errnum(int8_t errnum, jeffe_strerror_fn strerror_fn) {
-    uint64_t tag = ((uint64_t)JEFFE_TYPETAG_ERRNUM) << 56;
-    uint64_t err_byte = ((uint64_t)(uint8_t)errnum) << 48;
-    uint64_t fn_payload = ((uint64_t)strerror_fn) & 0x0000FFFFFFFFFFFFULL;
-    
-    struct jeffe_value v;
-    v.v = tag | err_byte | fn_payload;
-    return v;
-}
-
-int8_t jeffe_errnum_errnum(struct jeffe_value val) {
-    return (int8_t)((val.v >> 48) & 0xFF);
-}
-
-jeffe_strerror_fn jeffe_errnum_strerror_fn(struct jeffe_value val) {
-    uint64_t fn_bits = canonicalize_ptr(val.v & 0x0000FFFFFFFFFFFFULL);
-    return (jeffe_strerror_fn)fn_bits;
-}
-
-const char *jeffe_errnum_value(struct jeffe_value val) {
-    jeffe_strerror_fn func = jeffe_errnum_strerror_fn(val);
-    return func(jeffe_errnum_errnum(val));
-}
-```
+In this way, error codes can overlap without ambiguity, since each `jeffe_strerror_fn` is unique per error domain.
 
 ### Objects
-
 `jeffe-lang` uses a single function scheme for declaring new classes. The signature is:
+
 ```c
 typedef struct jeffe_value (*jeffe_class_fn)(
     void **userdata, 
@@ -184,81 +90,10 @@ enum jeffe_op {
 ```
 
 *For a full list of operators, see [[Operators]]*
-###### Implementation Details
-> ⚠️this section is not part of the ABI contract
 
-To better explain how Objects are created, this document refers to the following implementation-dependent struct.
+To create a new object, the `jeffe-lang` implementation should heap-allocate an association (i.e. an `objmeta`) between a `jeffe_class_fn` and a `void *userdata`. A pointer to the `userdata` field is then passed into the `jeffe_class_fn` for manipulation.
 
-```c
-#include <stdatomic.h>
+> ⚠️ the `objmeta` field is implementation private. It may contain extra fields to enable memory management and other things (e.g. refcounts, GC trackers)
 
-struct jeffe_obj_meta {
-    jeffe_class_fn class_fn;
-    void *userdata;
-    uint64_t thread_id; // id of owning thread
-    uint32_t strong_count; // strong count in the owning thread
-    atomic_uint_least16_t weak_count; // weak count across all threads
-    atomic_uint_least16_t atomic_strong; // strong count in other threads
-};
-```
-
-### Object Implementation
-
-```c
-struct jeffe_value jeffe_value_obj(jeffe_class_fn class_fn, size_t nargs, const struct jeffe_value *args) {
-    // 1. Allocate control structure
-    struct jeffe_obj_meta *meta_ptr = malloc(sizeof(struct jeffe_obj_meta));
-    meta_ptr->class_fn = class_fn;
-    meta_ptr->userdata = NULL;
-    meta_ptr->thread_id = 0;
-    meta_ptr->strong_count = 1;
-    atomic_init(&meta_ptr->weak_count, 0);
-    atomic_init(&meta_ptr->atomic_strong, 0);
-
-    // 2. Invoke constructor operation
-    struct jeffe_value ctor_res = class_fn(
-        &meta_ptr->userdata,
-        JEFFE_OP_CTOR,
-        nargs,
-        args
-    );
-
-    // 3. Inspect instantiation success via error opcode check (Op::IsErr mapped to integer, e.g. some positive OP)
-    // NOTE: assuming JEFFE_OP_IS_ERR exists.
-    struct jeffe_value is_err_res = class_fn(
-        &meta_ptr->userdata,
-        /* JEFFE_OP_IS_ERR */ 2, // example opcode
-        0,
-        NULL
-    );
-
-    // Abort and unwind allocation if an error flag is confirmed
-    // (psuedocode: if is_err_res implies error)
-    if (jeffe_value_type(is_err_res) == JEFFE_TYPETAG_BOOL && /* is_true */ 0) {
-        free(meta_ptr);
-        return ctor_res;
-    }
-
-    // 4. Pack control block address into an Object-tagged Value container
-    uint64_t tag = ((uint64_t)JEFFE_TYPETAG_OBJ) << 56;
-    uint64_t payload = ((uint64_t)meta_ptr) & 0x0000FFFFFFFFFFFFULL;
-    struct jeffe_value v;
-    v.v = tag | payload;
-    return v;
-}
-
-void jeffe_obj_drop(struct jeffe_value val) {
-    struct jeffe_obj_meta *meta_ptr = (struct jeffe_obj_meta *)canonicalize_ptr(jeffe_value_payload(val));
-    
-    // Invoke the class destructor via dispatch handler
-    meta_ptr->class_fn(
-        &meta_ptr->userdata,
-        JEFFE_OP_DTOR,
-        0,
-        NULL
-    );
-
-    // Deallocate control block memory
-    free(meta_ptr);
-}
+The constructor is then executed via `class_fn(&userdata, JEFFE_OP_CTOR, 0, NULL)`.
 ```

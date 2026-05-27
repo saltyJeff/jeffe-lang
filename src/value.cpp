@@ -1,8 +1,14 @@
-#include "internal.h"
+#include "value.hpp"
+#include "cstruct.hpp"
+#include "jeffe_lang.h"
+#include "objmeta.hpp"
+
 static jeffe_value value_builder(jeffe_typetag tag, int8_t meta, uint64_t payload)
 {
-    return (jeffe_value){.v = ((uint64_t)tag << TYPETAG_SHIFT) | (((uint64_t)meta & 0xFF) << 48) |
-                              (payload & PAYLOAD_MASK)};
+    uint64_t v = ((uint64_t)tag << TYPETAG_SHIFT) | (((uint64_t)meta & 0xFF) << 48) | (payload & PAYLOAD_MASK);
+    jeffe_value ret;
+    ret.v = v;
+    return ret;
 }
 
 jeffe_value jeffe_value_nil()
@@ -36,20 +42,17 @@ jeffe_value jeffe_value_f32(float f)
 }
 jeffe_value jeffe_value_f64(double d)
 {
-    double *dptr = malloc(sizeof(d));
-    *dptr = d;
+    double *dptr = new double(d);
     return value_builder(JEFFE_TYPETAG_F64, 0, ptr_compress(dptr));
 }
 jeffe_value jeffe_value_i64(int64_t l)
 {
-    int64_t *lptr = malloc(sizeof(l));
-    *lptr = l;
+    int64_t *lptr = new int64_t(l);
     return value_builder(JEFFE_TYPETAG_I64, 0, ptr_compress(lptr));
 }
 jeffe_value jeffe_value_u64(uint64_t ul)
 {
-    int64_t *ulptr = malloc(sizeof(ul));
-    *ulptr = ul;
+    uint64_t *ulptr = new uint64_t(ul);
     return value_builder(JEFFE_TYPETAG_U64, 0, ptr_compress(ulptr));
 }
 jeffe_value jeffe_value_ptr(void *ptr)
@@ -59,23 +62,20 @@ jeffe_value jeffe_value_ptr(void *ptr)
 
 jeffe_value jeffe_value_cstruct(size_t sz)
 {
-    cstruct_header *hdr = malloc(sizeof(cstruct_header) + sz);
-    hdr->sz = sz;
-    return value_builder(JEFFE_TYPETAG_CSTRUCT, 0, ptr_compress(&hdr->data));
+    return value_builder(JEFFE_TYPETAG_CSTRUCT, 0, ptr_compress(cstruct_new(sz)));
 }
 jeffe_value jeffe_value_errnum(int8_t err, jeffe_strerror_fn fn)
 {
-    return value_builder(JEFFE_TYPETAG_ERRNUM, err, ptr_compress(fn));
+    return value_builder(JEFFE_TYPETAG_ERRNUM, err, ptr_compress(reinterpret_cast<void *>(fn)));
 }
 jeffe_value jeffe_value_obj(jeffe_class_fn fn, size_t argn, const jeffe_value *argv)
 {
-    objmeta *meta_ptr = objmeta_new();
-    meta_ptr->class_fn = fn;
-    jeffe_value ctor_ret = fn(&meta_ptr->userdata, JEFFE_OP_CTOR, argn, argv);
+    objmeta *meta = new objmeta(fn);
+    jeffe_value ctor_ret = meta->invoke(JEFFE_OP_CTOR, argn, argv);
     // TODO: check ctor_ret is error
-    return value_builder(JEFFE_TYPETAG_OBJ, 0, ptr_compress(&meta_ptr->userdata));
+    return value_builder(JEFFE_TYPETAG_OBJ, 0, ptr_compress(meta->userdata_ptr()));
 }
 jeffe_typetag jeffe_value_type(jeffe_value v)
 {
-    return (v.v >> TYPETAG_SHIFT) & 0xFF;
+    return static_cast<jeffe_typetag>((v.v >> TYPETAG_SHIFT) & 0xFF);
 }
