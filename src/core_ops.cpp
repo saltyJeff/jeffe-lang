@@ -5,7 +5,7 @@
 
 void jeffe_destroy(jeffe_value val)
 {
-    switch (jeffe_value_type(val))
+    switch (jeffe_value_typetag(val))
     {
     case JEFFE_TYPETAG_F64:
     case JEFFE_TYPETAG_I64:
@@ -35,7 +35,7 @@ void jeffe_destroy(jeffe_value val)
 }
 jeffe_value jeffe_copy(jeffe_value rhs)
 {
-    switch (jeffe_value_type(rhs))
+    switch (jeffe_value_typetag(rhs))
     {
     case JEFFE_TYPETAG_F64: return jeffe_value_f64(*reinterpret_cast<double *>(ptr_uncompress(rhs.v & PAYLOAD_MASK)));
     case JEFFE_TYPETAG_I64: return jeffe_value_i64(*reinterpret_cast<int64_t *>(ptr_uncompress(rhs.v & PAYLOAD_MASK)));
@@ -55,7 +55,7 @@ jeffe_value jeffe_copy(jeffe_value rhs)
 }
 jeffe_value jeffe_get(jeffe_value obj, jeffe_value key)
 {
-    if (jeffe_value_type(obj) != JEFFE_TYPETAG_OBJ)
+    if (jeffe_value_typetag(obj) != JEFFE_TYPETAG_OBJ)
     {
         return jeffe_value_errnum(JEFFE_ERRNO_UNDEFINED, jeffe_builtin_strerror);
     }
@@ -64,7 +64,7 @@ jeffe_value jeffe_get(jeffe_value obj, jeffe_value key)
 }
 jeffe_value jeffe_set(jeffe_value obj, jeffe_value key, jeffe_value val)
 {
-    if (jeffe_value_type(obj) != JEFFE_TYPETAG_OBJ)
+    if (jeffe_value_typetag(obj) != JEFFE_TYPETAG_OBJ)
     {
         return jeffe_value_errnum(JEFFE_ERRNO_UNDEFINED, jeffe_builtin_strerror);
     }

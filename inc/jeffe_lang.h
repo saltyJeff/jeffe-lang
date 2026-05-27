@@ -1,8 +1,5 @@
 #ifndef JEFFE_LANG_H_
 #define JEFFE_LANG_H_
-#include <cstdint>
-#include <stdbool.h>
-#include <uchar.h>
 
 #if defined(JEFFE_STATIC)
 #define JEFFE_API
@@ -21,6 +18,8 @@
 #endif
 
 #include <stdint.h>
+#include <uchar.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -159,7 +158,7 @@ enum jeffe_typetag
  * @param v the value
  * @return the value's typetag
  */
-JEFFE_API enum jeffe_typetag jeffe_value_type(struct jeffe_value v);
+JEFFE_API enum jeffe_typetag jeffe_value_typetag(struct jeffe_value v);
 
 struct jeffe_value_holder
 {

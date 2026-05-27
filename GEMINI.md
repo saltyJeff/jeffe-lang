@@ -12,6 +12,7 @@ You should keep the README.md, source, and tests updated and consistent.
 If there is conflict in the spec docs, or the spec docs are unclear, do not edit them. Ask me for permission and give me suggestions first.
 
 Public includes should contain javadoc/doxygen style doc comments.
+They should also be C headers, not C++ ones.
 
 When making changes, first test the changes, and if they pass, make the change. If they fail, tell me and I'll fix them.
 

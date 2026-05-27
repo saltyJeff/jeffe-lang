@@ -68,14 +68,14 @@ jeffe_value jeffe_value_obj(jeffe_class_fn fn, size_t argn, const jeffe_value *a
     // TODO: check ctor_ret is error
     return value_builder(JEFFE_TYPETAG_OBJ, 0, ptr_compress(meta->userdata_ptr()));
 }
-jeffe_typetag jeffe_value_type(jeffe_value v)
+jeffe_typetag jeffe_value_typetag(jeffe_value v)
 {
     return static_cast<jeffe_typetag>((v.v >> TYPETAG_SHIFT) & 0xFF);
 }
 jeffe_value_holder jeffe_value_held_data(jeffe_value v)
 {
     jeffe_value_holder holder;
-    holder.typetag = jeffe_value_type(v);
+    holder.typetag = jeffe_value_typetag(v);
     switch (holder.typetag)
     {
     case JEFFE_TYPETAG_NIL: break;
