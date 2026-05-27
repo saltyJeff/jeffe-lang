@@ -21,22 +21,17 @@ jeffe_value jeffe_cmp(jeffe_value a, jeffe_value b)
         return ret;
     }
 
-    if (jeffe_value_typetag(a) == JEFFE_TYPETAG_OBJ && jeffe_value_typetag(b) == JEFFE_TYPETAG_OBJ)
+    jeffe_value_holder holderA = jeffe_value_held_data(a);
+    jeffe_value_holder holderB = jeffe_value_held_data(b);
+
+    if (holderA.typetag == JEFFE_TYPETAG_OBJ && holderB.typetag == JEFFE_TYPETAG_OBJ)
     {
-        void *ptrA = ptr_uncompress(a.v & PAYLOAD_MASK);
-        void *ptrB = ptr_uncompress(b.v & PAYLOAD_MASK);
-        return jeffe_value_i32(static_cast<int32_t>(reinterpret_cast<intptr_t>(ptrA) - reinterpret_cast<intptr_t>(ptrB)));
+        return jeffe_value_i32(static_cast<int32_t>(reinterpret_cast<intptr_t>(holderA.obj.userdata) - reinterpret_cast<intptr_t>(holderB.obj.userdata)));
     }
 
-    jeffe_typetag tagA = jeffe_value_typetag(a);
-    jeffe_typetag tagB = jeffe_value_typetag(b);
-
-    if (is_numeric_or_char(tagA) && is_numeric_or_char(tagB))
+    if (is_numeric_or_char(holderA.typetag) && is_numeric_or_char(holderB.typetag))
     {
-        jeffe_value_holder holderA = jeffe_value_held_data(a);
-        jeffe_value_holder holderB = jeffe_value_held_data(b);
-
-        jeffe_typetag common = get_common_type(tagA, tagB);
+        jeffe_typetag common = get_common_type(holderA.typetag, holderB.typetag);
         jeffe_value_holder promA = cast_to(holderA, common);
         jeffe_value_holder promB = cast_to(holderB, common);
 
@@ -58,39 +53,34 @@ jeffe_value jeffe_cmp(jeffe_value a, jeffe_value b)
         }
     }
 
-    if (tagA == tagB)
+    if (holderA.typetag == holderB.typetag)
     {
-        switch (tagA)
+        switch (holderA.typetag)
         {
         case JEFFE_TYPETAG_NIL: return jeffe_value_i32(0);
         case JEFFE_TYPETAG_BOOL:
         {
-            bool bA = static_cast<bool>(a.v & PAYLOAD_MASK);
-            bool bB = static_cast<bool>(b.v & PAYLOAD_MASK);
-            return jeffe_value_i32(static_cast<int32_t>(bA) - static_cast<int32_t>(bB));
+            return jeffe_value_i32(static_cast<int32_t>(holderA.b) - static_cast<int32_t>(holderB.b));
         }
         case JEFFE_TYPETAG_PTR:
+        {
+            return jeffe_value_i32(static_cast<int32_t>(reinterpret_cast<intptr_t>(holderA.ptr) - reinterpret_cast<intptr_t>(holderB.ptr)));
+        }
         case JEFFE_TYPETAG_CSTRUCT:
         {
-            void *ptrA = ptr_uncompress(a.v & PAYLOAD_MASK);
-            void *ptrB = ptr_uncompress(b.v & PAYLOAD_MASK);
-            return jeffe_value_i32(static_cast<int32_t>(reinterpret_cast<intptr_t>(ptrA) - reinterpret_cast<intptr_t>(ptrB)));
+            return jeffe_value_i32(static_cast<int32_t>(reinterpret_cast<intptr_t>(holderA.cstruct) - reinterpret_cast<intptr_t>(holderB.cstruct)));
         }
         case JEFFE_TYPETAG_ERRNUM:
         {
-            int8_t errA = static_cast<int8_t>((a.v >> 48) & 0xFF);
-            int8_t errB = static_cast<int8_t>((b.v >> 48) & 0xFF);
-            if (errA != errB)
+            if (holderA.errnum.errnum != holderB.errnum.errnum)
             {
-                return jeffe_value_i32(errA - errB);
+                return jeffe_value_i32(holderA.errnum.errnum - holderB.errnum.errnum);
             }
-            void *fnA = ptr_uncompress(a.v & PAYLOAD_MASK);
-            void *fnB = ptr_uncompress(b.v & PAYLOAD_MASK);
-            return jeffe_value_i32(static_cast<int32_t>(reinterpret_cast<intptr_t>(fnA) - reinterpret_cast<intptr_t>(fnB)));
+            return jeffe_value_i32(static_cast<int32_t>(reinterpret_cast<intptr_t>(reinterpret_cast<void*>(holderA.errnum.fn)) - reinterpret_cast<intptr_t>(reinterpret_cast<void*>(holderB.errnum.fn))));
         }
         default: return jeffe_value_i32(0);
         }
     }
 
-    return jeffe_value_i32(static_cast<int32_t>(tagA) - static_cast<int32_t>(tagB));
+    return jeffe_value_i32(static_cast<int32_t>(holderA.typetag) - static_cast<int32_t>(holderB.typetag));
 }

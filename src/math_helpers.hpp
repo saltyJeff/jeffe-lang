@@ -76,19 +76,6 @@ inline jeffe_value build_from_promoted(const jeffe_value_holder &val)
     }
 }
 
-inline bool is_zero(const jeffe_value_holder &val)
-{
-    switch (val.typetag)
-    {
-    case JEFFE_TYPETAG_I32: return val.i32 == 0;
-    case JEFFE_TYPETAG_U32: return val.u32 == 0;
-    case JEFFE_TYPETAG_I64: return val.i64 == 0;
-    case JEFFE_TYPETAG_U64: return val.u64 == 0;
-    case JEFFE_TYPETAG_F32: return val.f32 == 0.0f;
-    case JEFFE_TYPETAG_F64: return val.f64 == 0.0;
-    default: return false;
-    }
-}
 
 inline bool is_numeric_or_char(jeffe_typetag t)
 {

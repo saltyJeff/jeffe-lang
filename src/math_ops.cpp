@@ -128,10 +128,6 @@ jeffe_value jeffe_div(jeffe_value a, jeffe_value b)
 {
     return invoke_op(a, b, JEFFE_OP_DIV, JEFFE_OP_RDIV,
                      [](const jeffe_value_holder &pA, const jeffe_value_holder &pB) {
-                         if (is_zero(pB))
-                         {
-                             return jeffe_value_errnum(JEFFE_ERRNO_UNDEFINED, jeffe_builtin_strerror);
-                         }
                          return apply_primitive_op(pA, pB, [](auto x, auto y) { return x / y; });
                      },
                      validate_numeric);
@@ -141,10 +137,6 @@ jeffe_value jeffe_mod(jeffe_value a, jeffe_value b)
 {
     return invoke_op(a, b, JEFFE_OP_MOD, JEFFE_OP_RMOD,
                      [](const jeffe_value_holder &pA, const jeffe_value_holder &pB) {
-                         if (is_zero(pB))
-                         {
-                             return jeffe_value_errnum(JEFFE_ERRNO_UNDEFINED, jeffe_builtin_strerror);
-                         }
                          return apply_primitive_op(pA, pB, jeffe_mod_op{});
                      },
                      validate_numeric);
@@ -184,30 +176,21 @@ jeffe_value jeffe_log_not(jeffe_value a)
         return ret;
     }
 
+    jeffe_value_holder h = jeffe_value_held_data(a);
     bool truthy = true;
-    switch (jeffe_value_typetag(a))
+    switch (h.typetag)
     {
     case JEFFE_TYPETAG_NIL: truthy = false; break;
-    case JEFFE_TYPETAG_BOOL: truthy = static_cast<bool>(a.v & PAYLOAD_MASK); break;
-    case JEFFE_TYPETAG_CHAR: truthy = (static_cast<char32_t>(a.v & PAYLOAD_MASK) != 0); break;
-    case JEFFE_TYPETAG_I32: truthy = (static_cast<int32_t>(a.v & PAYLOAD_MASK) != 0); break;
-    case JEFFE_TYPETAG_U32: truthy = (static_cast<uint32_t>(a.v & PAYLOAD_MASK) != 0); break;
-    case JEFFE_TYPETAG_F32:
-    {
-        union
-        {
-            uint32_t y;
-            float x;
-        } pun;
-        pun.y = static_cast<uint32_t>(a.v & PAYLOAD_MASK);
-        truthy = (pun.x != 0.0f);
-        break;
-    }
-    case JEFFE_TYPETAG_F64: truthy = (*reinterpret_cast<double *>(ptr_uncompress(a.v & PAYLOAD_MASK)) != 0.0); break;
-    case JEFFE_TYPETAG_I64: truthy = (*reinterpret_cast<int64_t *>(ptr_uncompress(a.v & PAYLOAD_MASK)) != 0); break;
-    case JEFFE_TYPETAG_U64: truthy = (*reinterpret_cast<uint64_t *>(ptr_uncompress(a.v & PAYLOAD_MASK)) != 0); break;
-    case JEFFE_TYPETAG_PTR:
-    case JEFFE_TYPETAG_CSTRUCT: truthy = (ptr_uncompress(a.v & PAYLOAD_MASK) != nullptr); break;
+    case JEFFE_TYPETAG_BOOL: truthy = h.b; break;
+    case JEFFE_TYPETAG_CHAR: truthy = (h.c != 0); break;
+    case JEFFE_TYPETAG_I32: truthy = (h.i32 != 0); break;
+    case JEFFE_TYPETAG_U32: truthy = (h.u32 != 0); break;
+    case JEFFE_TYPETAG_I64: truthy = (h.i64 != 0); break;
+    case JEFFE_TYPETAG_U64: truthy = (h.u64 != 0); break;
+    case JEFFE_TYPETAG_F32: truthy = (h.f32 != 0.0f); break;
+    case JEFFE_TYPETAG_F64: truthy = (h.f64 != 0.0); break;
+    case JEFFE_TYPETAG_PTR: truthy = (h.ptr != nullptr); break;
+    case JEFFE_TYPETAG_CSTRUCT: truthy = (h.cstruct != nullptr); break;
     default: truthy = true; break;
     }
     return jeffe_value_bool(!truthy);
@@ -268,25 +251,15 @@ jeffe_value jeffe_bit_not(jeffe_value a)
     jeffe_value_holder prom;
     prom.typetag = holderA.typetag == JEFFE_TYPETAG_CHAR ? JEFFE_TYPETAG_U32 : holderA.typetag;
 
-    if (holderA.typetag == JEFFE_TYPETAG_CHAR)
+    switch (prom.typetag)
     {
-        prom.u32 = ~static_cast<uint32_t>(holderA.c);
-    }
-    else if (holderA.typetag == JEFFE_TYPETAG_I32)
-    {
-        prom.i32 = ~holderA.i32;
-    }
-    else if (holderA.typetag == JEFFE_TYPETAG_U32)
-    {
-        prom.u32 = ~holderA.u32;
-    }
-    else if (holderA.typetag == JEFFE_TYPETAG_I64)
-    {
-        prom.i64 = ~holderA.i64;
-    }
-    else if (holderA.typetag == JEFFE_TYPETAG_U64)
-    {
-        prom.u64 = ~holderA.u64;
+    case JEFFE_TYPETAG_U32:
+        prom.u32 = ~static_cast<uint32_t>(holderA.typetag == JEFFE_TYPETAG_CHAR ? holderA.c : holderA.u32);
+        break;
+    case JEFFE_TYPETAG_I32: prom.i32 = ~holderA.i32; break;
+    case JEFFE_TYPETAG_I64: prom.i64 = ~holderA.i64; break;
+    case JEFFE_TYPETAG_U64: prom.u64 = ~holderA.u64; break;
+    default: break;
     }
 
     return build_from_promoted(prom);

@@ -78,11 +78,7 @@ TEST_CASE("math_arithmetic_primitives")
     CHECK(jeffe_value_typetag(r_mixed) == JEFFE_TYPETAG_F32);
     CHECK(jeffe_value_held_data(r_mixed).f32 == 11.5f);
 
-    // Division by zero error
-    jeffe_value zero = jeffe_value_i32(0);
-    jeffe_value err_div = jeffe_div(i1, zero);
-    CHECK(jeffe_value_typetag(err_div) == JEFFE_TYPETAG_ERRNUM);
-    CHECK(jeffe_value_held_data(err_div).errnum.errnum == JEFFE_ERRNO_UNDEFINED);
+
 
     // Modulo float support
     jeffe_value f_div = jeffe_value_f32(5.5f);

@@ -35,3 +35,9 @@ Use DRY principles but not to excess with super macros. Write as an experienced 
 Use C++ style casts over C-style casts
 
 Google antigravity IDE is now bugged and cant run cmake. Tell me and I can run the code.
+
+Before performing manual masking (`PAYLOAD_MASK`), raw bitwise shifts, or pointer decompression (`ptr_uncompress`), always prefer using the standard `jeffe_value_holder` via `jeffe_value_held_data` to access typetags and union fields. Only fall back to manual bit manipulation if absolute raw performance in a hot assembly loop warrants it.
+
+At the entry of functions taking `jeffe_value` parameters, proactively check if unpacking them immediately into `jeffe_value_holder` structs simplifies downstream checks, comparisons, and type switches.
+
+Leverage standard C++17 mechanisms (like `if constexpr`, templates, and lambda/predicates) to collapse parallel multi-type switch structures and repeating dispatcher functions into DRY higher-order templates.
