@@ -111,3 +111,40 @@ TEST_CASE("value obj constructor") {
     CHECK(h.obj.fn == dummy_class_fn);
     CHECK(h.obj.userdata != nullptr);
 }
+
+TEST_CASE("jeffe_as_index conversions") {
+    intptr_t out = 0;
+
+    // Successful conversions
+    CHECK(jeffe_as_index(jeffe_value_char('A'), &out) == true);
+    CHECK(out == 65);
+
+    CHECK(jeffe_as_index(jeffe_value_i32(-500), &out) == true);
+    CHECK(out == -500);
+
+    CHECK(jeffe_as_index(jeffe_value_u32(1000), &out) == true);
+    CHECK(out == 1000);
+
+    if (sizeof(intptr_t) >= 8) {
+        CHECK(jeffe_as_index(jeffe_value_i64(5000000000LL), &out) == true);
+        CHECK(out == 5000000000LL);
+
+        CHECK(jeffe_as_index(jeffe_value_u64(9000000000ULL), &out) == true);
+        CHECK(out == 9000000000ULL);
+    } else {
+        CHECK(jeffe_as_index(jeffe_value_i64(5000000000LL), &out) == true);
+        CHECK(out == static_cast<intptr_t>(5000000000LL));
+
+        CHECK(jeffe_as_index(jeffe_value_u64(9000000000ULL), &out) == true);
+        CHECK(out == static_cast<intptr_t>(9000000000ULL));
+    }
+
+    // Failures
+    CHECK(jeffe_as_index(jeffe_value_nil(), &out) == false);
+    CHECK(jeffe_as_index(jeffe_value_bool(true), &out) == false);
+    CHECK(jeffe_as_index(jeffe_value_f32(1.5f), &out) == false);
+    CHECK(jeffe_as_index(jeffe_value_f64(2.5), &out) == false);
+    
+    // Null output pointer defensive check
+    CHECK(jeffe_as_index(jeffe_value_i32(10), nullptr) == false);
+}

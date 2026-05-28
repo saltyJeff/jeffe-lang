@@ -81,7 +81,8 @@ Negative values of `op` are reserved for user extensions. Positive values are pa
 ```c
 enum jeffe_op {
     JEFFE_OP_CTOR,
-    JEFFE_OP_DTOR
+    JEFFE_OP_DTOR,
+    ...
 };
 ```
 
@@ -95,3 +96,13 @@ The constructor is then executed via
 ```c
 class_fn(&userdata, JEFFE_OP_CTOR, 0, NULL)
 ```
+
+## Reference Semantics & Memory Ownership
+Values within `jeffe-lang` adhere to strict ownership guidelines to maintain deterministic cleanups without garbage collection overhead:
+
+- **Parameter Lifetime Independence:** Class operations (`jeffe_class_fn`) must not retain dependencies on caller-owned parameters in `argv`. The parameters are transient and must be copied via `jeffe_copy()` if retained past the lifecycle of the active invocation.
+- **Reference Allocation vs Value Copies:**
+  - Primitives and heap primitives (e.g., `i64`, `u64`, `f64`, `cstruct`) are deep-copied during value assignments. Each copy requires standalone destruction via `jeffe_destroy()`.
+  - Custom objects (`JEFFE_TYPETAG_OBJ`) implement shallow-copied shared reference semantics. The underlying resources must be destroyed exactly once (e.g., inside the destructor operation `JEFFE_OP_DTOR` freeing the object's `userdata`).
+- **Memory Hygiene:**
+  - To prevent memory leaks, temporary or locally duplicated reference handles created within collection/operator lookups must be destroyed via `jeffe_destroy()` before returning to the caller.

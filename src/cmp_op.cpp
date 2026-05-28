@@ -1,33 +1,49 @@
 #include "math_helpers.hpp"
+#include <tuple>
+
+template <typename T>
+static int signum(T val) { return (val > T(0)) - (val < T(0)); }
+
+template <typename T>
+static int compare_values(const T& a, const T& b) { return (a > b) - (a < b); }
+
+static int val_to_cmp_result(jeffe_value val)
+{
+    jeffe_value_holder h = jeffe_value_held_data(val);
+    switch (h.typetag)
+    {
+    case JEFFE_TYPETAG_I32:  return signum(h.i32);
+    case JEFFE_TYPETAG_U32:  return signum(h.u32);
+    case JEFFE_TYPETAG_I64:  return signum(h.i64);
+    case JEFFE_TYPETAG_U64:  return signum(h.u64);
+    case JEFFE_TYPETAG_F32:  return signum(h.f32);
+    case JEFFE_TYPETAG_F64:  return signum(h.f64);
+    case JEFFE_TYPETAG_BOOL: return signum(h.b);
+    case JEFFE_TYPETAG_CHAR: return signum(h.c);
+    default:                 return 0;
+    }
+}
+
+static jeffe_value not_ordered_err()
+{
+    return jeffe_value_errnum(JEFFE_ERRNO_NOTORDERED, jeffe_builtin_strerror);
+}
 
 jeffe_value jeffe_cmp(jeffe_value a, jeffe_value b)
 {
-    jeffe_value ret = try_invoke_meta(a, JEFFE_OP_CMP, b);
-    if (!(jeffe_value_typetag(ret) == JEFFE_TYPETAG_ERRNUM &&
-          jeffe_value_held_data(ret).errnum.errnum == JEFFE_ERRNO_NOTIMPL))
+    for (auto [x, y, sign] : {std::tuple{a, b, 1}, std::tuple{b, a, -1}})
     {
-        return ret;
-    }
-
-    ret = try_invoke_meta(b, JEFFE_OP_CMP, a);
-    if (!(jeffe_value_typetag(ret) == JEFFE_TYPETAG_ERRNUM &&
-          jeffe_value_held_data(ret).errnum.errnum == JEFFE_ERRNO_NOTIMPL))
-    {
-        jeffe_value_holder holder = jeffe_value_held_data(ret);
-        if (holder.typetag == JEFFE_TYPETAG_I32)
+        jeffe_value ret = try_invoke_meta(x, JEFFE_OP_CMP, y);
+        jeffe_value_holder h = jeffe_value_held_data(ret);
+        if (!(h.typetag == JEFFE_TYPETAG_ERRNUM && h.errnum.errnum == JEFFE_ERRNO_NOTIMPL))
         {
-            return jeffe_value_i32(-holder.i32);
+            return (h.typetag == JEFFE_TYPETAG_ERRNUM && h.errnum.errnum == JEFFE_ERRNO_NOTORDERED) 
+                   ? ret : jeffe_value_i32(sign * val_to_cmp_result(ret));
         }
-        return ret;
     }
 
     jeffe_value_holder holderA = jeffe_value_held_data(a);
     jeffe_value_holder holderB = jeffe_value_held_data(b);
-
-    if (holderA.typetag == JEFFE_TYPETAG_OBJ && holderB.typetag == JEFFE_TYPETAG_OBJ)
-    {
-        return jeffe_value_i32(static_cast<int32_t>(reinterpret_cast<intptr_t>(holderA.obj.userdata) - reinterpret_cast<intptr_t>(holderB.obj.userdata)));
-    }
 
     if (is_numeric_or_char(holderA.typetag) && is_numeric_or_char(holderB.typetag))
     {
@@ -37,18 +53,12 @@ jeffe_value jeffe_cmp(jeffe_value a, jeffe_value b)
 
         switch (common)
         {
-        case JEFFE_TYPETAG_I32:
-            return jeffe_value_i32((promA.i32 > promB.i32) - (promA.i32 < promB.i32));
-        case JEFFE_TYPETAG_U32:
-            return jeffe_value_i32((promA.u32 > promB.u32) - (promA.u32 < promB.u32));
-        case JEFFE_TYPETAG_I64:
-            return jeffe_value_i32((promA.i64 > promB.i64) - (promA.i64 < promB.i64));
-        case JEFFE_TYPETAG_U64:
-            return jeffe_value_i32((promA.u64 > promB.u64) - (promA.u64 < promB.u64));
-        case JEFFE_TYPETAG_F32:
-            return jeffe_value_i32((promA.f32 > promB.f32) - (promA.f32 < promB.f32));
-        case JEFFE_TYPETAG_F64:
-            return jeffe_value_i32((promA.f64 > promB.f64) - (promA.f64 < promB.f64));
+        case JEFFE_TYPETAG_I32:  return jeffe_value_i32(compare_values(promA.i32, promB.i32));
+        case JEFFE_TYPETAG_U32:  return jeffe_value_i32(compare_values(promA.u32, promB.u32));
+        case JEFFE_TYPETAG_I64:  return jeffe_value_i32(compare_values(promA.i64, promB.i64));
+        case JEFFE_TYPETAG_U64:  return jeffe_value_i32(compare_values(promA.u64, promB.u64));
+        case JEFFE_TYPETAG_F32:  return jeffe_value_i32(compare_values(promA.f32, promB.f32));
+        case JEFFE_TYPETAG_F64:  return jeffe_value_i32(compare_values(promA.f64, promB.f64));
         default: break;
         }
     }
@@ -57,30 +67,16 @@ jeffe_value jeffe_cmp(jeffe_value a, jeffe_value b)
     {
         switch (holderA.typetag)
         {
-        case JEFFE_TYPETAG_NIL: return jeffe_value_i32(0);
-        case JEFFE_TYPETAG_BOOL:
-        {
-            return jeffe_value_i32(static_cast<int32_t>(holderA.b) - static_cast<int32_t>(holderB.b));
-        }
-        case JEFFE_TYPETAG_PTR:
-        {
-            return jeffe_value_i32(static_cast<int32_t>(reinterpret_cast<intptr_t>(holderA.ptr) - reinterpret_cast<intptr_t>(holderB.ptr)));
-        }
-        case JEFFE_TYPETAG_CSTRUCT:
-        {
-            return jeffe_value_i32(static_cast<int32_t>(reinterpret_cast<intptr_t>(holderA.cstruct) - reinterpret_cast<intptr_t>(holderB.cstruct)));
-        }
+        case JEFFE_TYPETAG_NIL:     return jeffe_value_i32(0);
+        case JEFFE_TYPETAG_BOOL:    return jeffe_value_i32(static_cast<int>(holderA.b) - static_cast<int>(holderB.b));
+        case JEFFE_TYPETAG_PTR:     return (holderA.ptr == holderB.ptr) ? jeffe_value_i32(0) : not_ordered_err();
+        case JEFFE_TYPETAG_CSTRUCT: return (holderA.cstruct == holderB.cstruct) ? jeffe_value_i32(0) : not_ordered_err();
+        case JEFFE_TYPETAG_OBJ:     return (holderA.obj.userdata == holderB.obj.userdata) ? jeffe_value_i32(0) : not_ordered_err();
         case JEFFE_TYPETAG_ERRNUM:
-        {
-            if (holderA.errnum.errnum != holderB.errnum.errnum)
-            {
-                return jeffe_value_i32(holderA.errnum.errnum - holderB.errnum.errnum);
-            }
-            return jeffe_value_i32(static_cast<int32_t>(reinterpret_cast<intptr_t>(reinterpret_cast<void*>(holderA.errnum.fn)) - reinterpret_cast<intptr_t>(reinterpret_cast<void*>(holderB.errnum.fn))));
-        }
-        default: return jeffe_value_i32(0);
+            return ((holderA.errnum.errnum == holderB.errnum.errnum) && (holderA.errnum.fn == holderB.errnum.fn)) ? jeffe_value_i32(0) : not_ordered_err();
+        default:                    return not_ordered_err();
         }
     }
 
-    return jeffe_value_i32(static_cast<int32_t>(holderA.typetag) - static_cast<int32_t>(holderB.typetag));
+    return jeffe_value_i32(signum(static_cast<int>(holderA.typetag) - static_cast<int>(holderB.typetag)));
 }

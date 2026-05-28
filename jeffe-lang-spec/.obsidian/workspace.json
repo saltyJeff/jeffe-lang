@@ -49,9 +49,19 @@
               "icon": "lucide-file",
               "title": "Operators"
             }
+          },
+          {
+            "id": "f6ecad76ef05e4b7",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {},
+              "icon": "lucide-file",
+              "title": "New tab"
+            }
           }
         ],
-        "currentTab": 1
+        "currentTab": 2
       },
       {
         "id": "d0d985944335c13b",
@@ -230,11 +240,11 @@
       "bases:Create new base": false
     }
   },
-  "active": "422d87f763cc207b",
+  "active": "fa4b71b741d3bf11",
   "lastOpenFiles": [
+    "Operators.md",
     "Builtins.md",
     "API.md",
-    "ABI.md",
-    "Operators.md"
+    "ABI.md"
   ]
 }

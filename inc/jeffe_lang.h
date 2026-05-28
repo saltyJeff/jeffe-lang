@@ -18,6 +18,7 @@
 #endif
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <uchar.h>
 
@@ -25,6 +26,8 @@
 extern "C"
 {
 #endif
+
+#pragma region("jeffe_value ctors and getters")
 
 /**
  * A type representing a 64-bit tagged value.
@@ -201,7 +204,9 @@ struct jeffe_value_holder
  * @return the held data
  */
 JEFFE_API struct jeffe_value_holder jeffe_value_held_data(struct jeffe_value v);
+#pragma endregion
 
+#pragma region("operations")
 /**
  * Represents an operation passed to a class definition function.
  */
@@ -229,7 +234,9 @@ enum jeffe_op
     JEFFE_OP_BIT_AND,
     JEFFE_OP_BIT_OR,
     JEFFE_OP_BIT_NOT,
-    JEFFE_OP_CMP
+    JEFFE_OP_CMP,
+    JEFFE_OP_LEN,
+    JEFFE_OP_ITER
 };
 /**
  * Destroys a jeffe_value.
@@ -258,6 +265,19 @@ JEFFE_API struct jeffe_value jeffe_get(struct jeffe_value obj, struct jeffe_valu
  * @return the resulting value (typically nil)
  */
 JEFFE_API struct jeffe_value jeffe_set(struct jeffe_value obj, struct jeffe_value key, struct jeffe_value val);
+/**
+ * Gets the length of the collection.
+ * @param obj the collection object
+ * @return the length as a u64 value, or error
+ */
+JEFFE_API struct jeffe_value jeffe_len(struct jeffe_value obj);
+/**
+ * Iterates through the collection.
+ * @param obj the collection object
+ * @param iter_obj the iterator state (nil for first iteration)
+ * @return a tuple of (value, next_iterator_state), or error
+ */
+JEFFE_API struct jeffe_value jeffe_iter(struct jeffe_value obj, struct jeffe_value iter_obj);
 /**
  * Checks if the value should be interpreted as an error.
  * True if the value is an errnum, or an object which returns true for JEFFE_OP_IS_ERR
@@ -407,16 +427,35 @@ JEFFE_API struct jeffe_value jeffe_bit_not(struct jeffe_value a);
  * Performs comparative comparison: a <=> b.
  * @param a the left-hand side value
  * @param b the right-hand side value
- * @return a positive i32 value if a > b, negative if a < b, or 0 if equal
+ * @return an i32 value (1 if a > b, -1 if a < b, 0 if equal), or an errnum if not orderable
  */
 JEFFE_API struct jeffe_value jeffe_cmp(struct jeffe_value a, struct jeffe_value b);
+#pragma endregion
+
+#pragma region("builtins and utilities")
+/**
+ * Convenience function that converts an integral jeffe_value into a ptrdiff_t.
+ * @param v the value
+ * @param out the pointer to store the result in
+ * @return true if the value was successfully converted, false otherwise
+ */
+JEFFE_API bool jeffe_as_index(struct jeffe_value v, intptr_t *out);
 
 enum jeffe_builtin_errno
 {
     JEFFE_ERRNO_UNDEFINED,
-    JEFFE_ERRNO_NOTIMPL
+    JEFFE_ERRNO_NOTIMPL,
+    JEFFE_ERRNO_ARGTYPE,
+    JEFFE_ERRNO_OUTOFBOUNDS,
+    JEFFE_ERRNO_NOTORDERED
 };
 JEFFE_API const char *jeffe_builtin_strerror(int8_t err);
+
+struct jeffe_value jeffe_tuple_class_fn(void **userdata, int op, size_t argn, const struct jeffe_value *argv);
+struct jeffe_value jeffe_tuple(size_t argn, const struct jeffe_value *argv);
+
+#pragma endregion
+
 #ifdef __cplusplus
 }
 #endif

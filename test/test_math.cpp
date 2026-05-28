@@ -143,21 +143,43 @@ TEST_CASE("math_comparisons")
 {
     // Numeric comparisons
     jeffe_value c1 = jeffe_cmp(jeffe_value_i32(5), jeffe_value_i32(10));
+    CHECK(jeffe_value_typetag(c1) == JEFFE_TYPETAG_I32);
     CHECK(jeffe_value_held_data(c1).i32 == -1);
 
     jeffe_value c2 = jeffe_cmp(jeffe_value_i32(10), jeffe_value_i32(5));
+    CHECK(jeffe_value_typetag(c2) == JEFFE_TYPETAG_I32);
     CHECK(jeffe_value_held_data(c2).i32 == 1);
 
     jeffe_value c3 = jeffe_cmp(jeffe_value_i32(5), jeffe_value_i32(5));
+    CHECK(jeffe_value_typetag(c3) == JEFFE_TYPETAG_I32);
     CHECK(jeffe_value_held_data(c3).i32 == 0);
 
     // Bool comparisons (false < true)
     jeffe_value c_bool = jeffe_cmp(jeffe_value_bool(false), jeffe_value_bool(true));
+    CHECK(jeffe_value_typetag(c_bool) == JEFFE_TYPETAG_I32);
     CHECK(jeffe_value_held_data(c_bool).i32 == -1);
 
     // Total ordering for different types
     jeffe_value c_diff = jeffe_cmp(jeffe_value_bool(true), jeffe_value_i32(10));
+    CHECK(jeffe_value_typetag(c_diff) == JEFFE_TYPETAG_I32);
     CHECK(jeffe_value_held_data(c_diff).i32 != 0);
+}
+
+TEST_CASE("math_comparisons_non_orderable")
+{
+    jeffe_value p1 = jeffe_value_ptr(reinterpret_cast<void*>(0x1234));
+    jeffe_value p2 = jeffe_value_ptr(reinterpret_cast<void*>(0x5678));
+    jeffe_value p3 = jeffe_value_ptr(reinterpret_cast<void*>(0x1234));
+
+    // Identical non-orderable should return 0 (type i32)
+    jeffe_value c_eq = jeffe_cmp(p1, p3);
+    CHECK(jeffe_value_typetag(c_eq) == JEFFE_TYPETAG_I32);
+    CHECK(jeffe_value_held_data(c_eq).i32 == 0);
+
+    // Different non-orderable should return ERR_NOT_ORDERED errnum
+    jeffe_value c_ne = jeffe_cmp(p1, p2);
+    CHECK(jeffe_value_typetag(c_ne) == JEFFE_TYPETAG_ERRNUM);
+    CHECK(jeffe_value_held_data(c_ne).errnum.errnum == JEFFE_ERRNO_NOTORDERED);
 }
 
 TEST_CASE("math_objects")
@@ -178,9 +200,11 @@ TEST_CASE("math_objects")
 
     // Object comparison
     jeffe_value cmp_res = jeffe_cmp(obj, jeffe_value_i32(120));
+    CHECK(jeffe_value_typetag(cmp_res) == JEFFE_TYPETAG_I32);
     CHECK(jeffe_value_held_data(cmp_res).i32 == -1);
 
     jeffe_value cmp_res_r = jeffe_cmp(jeffe_value_i32(80), obj);
+    CHECK(jeffe_value_typetag(cmp_res_r) == JEFFE_TYPETAG_I32);
     CHECK(jeffe_value_held_data(cmp_res_r).i32 == -1); // 80 < 100
 
     jeffe_destroy(obj);
