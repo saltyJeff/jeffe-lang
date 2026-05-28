@@ -104,6 +104,38 @@ struct jeffe_value jeffe_tuple_class_fn(void **userdata, int op, size_t argn, co
         jeffe_destroy(elements[1]);
         return ret_tuple;
     }
+    case JEFFE_OP_CMP:
+    {
+        if (argn != 1)
+        {
+            return jeffe_value_errnum(JEFFE_ERRNO_ARGTYPE, jeffe_builtin_strerror);
+        }
+        jeffe_value_holder rhs_holder = jeffe_value_held_data(argv[0]);
+        if (rhs_holder.typetag != JEFFE_TYPETAG_OBJ || rhs_holder.obj.fn != jeffe_tuple_class_fn)
+        {
+            return jeffe_value_errnum(JEFFE_ERRNO_NOTIMPL, jeffe_builtin_strerror);
+        }
+        jeffe_tuple_data *dataA = static_cast<jeffe_tuple_data *>(*userdata);
+        jeffe_tuple_data *dataB = static_cast<jeffe_tuple_data *>(*rhs_holder.obj.userdata);
+
+        size_t min_len = (dataA->len < dataB->len) ? dataA->len : dataB->len;
+        for (size_t i = 0; i < min_len; i++)
+        {
+            jeffe_value cmp_res = jeffe_cmp(dataA->vals[i], dataB->vals[i]);
+            jeffe_value_holder cmp_holder = jeffe_value_held_data(cmp_res);
+            if (cmp_holder.typetag == JEFFE_TYPETAG_ERRNUM)
+            {
+                return cmp_res;
+            }
+            if (cmp_holder.i32 != 0)
+            {
+                return cmp_res;
+            }
+        }
+        if (dataA->len < dataB->len) return jeffe_value_i32(-1);
+        if (dataA->len > dataB->len) return jeffe_value_i32(1);
+        return jeffe_value_i32(0);
+    }
     }
     return jeffe_value_errnum(JEFFE_ERRNO_NOTIMPL, jeffe_builtin_strerror);
 }

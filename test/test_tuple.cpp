@@ -171,4 +171,91 @@ TEST_CASE("tuple heap element destruction") {
     jeffe_destroy(t);
 }
 
+TEST_CASE("tuple comparative comparison") {
+    // equal tuples
+    jeffe_value el1[2] = {jeffe_value_i32(1), jeffe_value_i32(2)};
+    jeffe_value t1 = jeffe_tuple(2, el1);
+
+    jeffe_value el2[2] = {jeffe_value_i32(1), jeffe_value_i32(2)};
+    jeffe_value t2 = jeffe_tuple(2, el2);
+
+    jeffe_value c_eq = jeffe_cmp(t1, t2);
+    CHECK(jeffe_value_typetag(c_eq) == JEFFE_TYPETAG_I32);
+    CHECK(jeffe_value_held_data(c_eq).i32 == 0);
+
+    // unequal tuples (different values)
+    jeffe_value el3[2] = {jeffe_value_i32(1), jeffe_value_i32(3)};
+    jeffe_value t3 = jeffe_tuple(2, el3);
+
+    jeffe_value c_lt = jeffe_cmp(t1, t3);
+    CHECK(jeffe_value_typetag(c_lt) == JEFFE_TYPETAG_I32);
+    CHECK(jeffe_value_held_data(c_lt).i32 == -1); // t1 < t3 since 2 < 3
+
+    jeffe_value c_gt = jeffe_cmp(t3, t1);
+    CHECK(jeffe_value_typetag(c_gt) == JEFFE_TYPETAG_I32);
+    CHECK(jeffe_value_held_data(c_gt).i32 == 1); // t3 > t1 since 3 > 2
+
+    // unequal tuples (different lengths)
+    jeffe_value el4[3] = {jeffe_value_i32(1), jeffe_value_i32(2), jeffe_value_i32(3)};
+    jeffe_value t4 = jeffe_tuple(3, el4);
+
+    jeffe_value c_len_lt = jeffe_cmp(t1, t4);
+    CHECK(jeffe_value_typetag(c_len_lt) == JEFFE_TYPETAG_I32);
+    CHECK(jeffe_value_held_data(c_len_lt).i32 == -1); // t1 < t4 since t1 is prefix of t4 but shorter
+
+    jeffe_value c_len_gt = jeffe_cmp(t4, t1);
+    CHECK(jeffe_value_typetag(c_len_gt) == JEFFE_TYPETAG_I32);
+    CHECK(jeffe_value_held_data(c_len_gt).i32 == 1); // t4 > t1 since t4 is prefix of t1 but longer
+
+    jeffe_destroy(t1);
+    jeffe_destroy(t2);
+    jeffe_destroy(t3);
+    jeffe_destroy(t4);
+
+    // tuples containing pointer elements (orderable)
+    jeffe_value p1 = jeffe_value_ptr(reinterpret_cast<void*>(0x1234));
+    jeffe_value p2 = jeffe_value_ptr(reinterpret_cast<void*>(0x5678));
+    jeffe_value p3 = jeffe_value_ptr(reinterpret_cast<void*>(0x1234));
+
+    jeffe_value el_non_eq1[1] = {p1};
+    jeffe_value t_non_eq1 = jeffe_tuple(1, el_non_eq1);
+
+    jeffe_value el_non_eq2[1] = {p3};
+    jeffe_value t_non_eq2 = jeffe_tuple(1, el_non_eq2);
+
+    jeffe_value c_non_eq = jeffe_cmp(t_non_eq1, t_non_eq2);
+    CHECK(jeffe_value_typetag(c_non_eq) == JEFFE_TYPETAG_I32);
+    CHECK(jeffe_value_held_data(c_non_eq).i32 == 0); // identical pointer elements -> equal tuples (0)
+
+    jeffe_value el_non_ne[1] = {p2};
+    jeffe_value t_non_ne = jeffe_tuple(1, el_non_ne);
+
+    jeffe_value c_non_ne = jeffe_cmp(t_non_eq1, t_non_ne);
+    CHECK(jeffe_value_typetag(c_non_ne) == JEFFE_TYPETAG_I32);
+    CHECK(jeffe_value_held_data(c_non_ne).i32 == -1); // orderable pointer elements (0x1234 < 0x5678) -> -1
+
+    jeffe_destroy(t_non_eq1);
+    jeffe_destroy(t_non_eq2);
+    jeffe_destroy(t_non_ne);
+
+    // tuples containing cstruct elements (non-orderable)
+    jeffe_value cs1 = jeffe_value_cstruct(16);
+    jeffe_value cs2 = jeffe_value_cstruct(32);
+
+    jeffe_value el_cs1[1] = {cs1};
+    jeffe_value t_cs1 = jeffe_tuple(1, el_cs1);
+
+    jeffe_value el_cs2[1] = {cs2};
+    jeffe_value t_cs2 = jeffe_tuple(1, el_cs2);
+
+    jeffe_value c_cs = jeffe_cmp(t_cs1, t_cs2);
+    CHECK(jeffe_value_typetag(c_cs) == JEFFE_TYPETAG_ERRNUM);
+    CHECK(jeffe_value_held_data(c_cs).errnum.errnum == JEFFE_ERRNO_NOTORDERED); // different cstructs -> not orderable error
+
+    jeffe_destroy(cs1);
+    jeffe_destroy(cs2);
+    jeffe_destroy(t_cs1);
+    jeffe_destroy(t_cs2);
+}
+
 

@@ -69,7 +69,7 @@ jeffe_value jeffe_cmp(jeffe_value a, jeffe_value b)
         {
         case JEFFE_TYPETAG_NIL:     return jeffe_value_i32(0);
         case JEFFE_TYPETAG_BOOL:    return jeffe_value_i32(static_cast<int>(holderA.b) - static_cast<int>(holderB.b));
-        case JEFFE_TYPETAG_PTR:     return (holderA.ptr == holderB.ptr) ? jeffe_value_i32(0) : not_ordered_err();
+        case JEFFE_TYPETAG_PTR:     return jeffe_value_i32((holderA.ptr > holderB.ptr) - (holderA.ptr < holderB.ptr));
         case JEFFE_TYPETAG_CSTRUCT: return (holderA.cstruct == holderB.cstruct) ? jeffe_value_i32(0) : not_ordered_err();
         case JEFFE_TYPETAG_OBJ:     return (holderA.obj.userdata == holderB.obj.userdata) ? jeffe_value_i32(0) : not_ordered_err();
         case JEFFE_TYPETAG_ERRNUM:

@@ -165,21 +165,21 @@ TEST_CASE("math_comparisons")
     CHECK(jeffe_value_held_data(c_diff).i32 != 0);
 }
 
-TEST_CASE("math_comparisons_non_orderable")
+TEST_CASE("math_comparisons_pointers")
 {
     jeffe_value p1 = jeffe_value_ptr(reinterpret_cast<void*>(0x1234));
     jeffe_value p2 = jeffe_value_ptr(reinterpret_cast<void*>(0x5678));
     jeffe_value p3 = jeffe_value_ptr(reinterpret_cast<void*>(0x1234));
 
-    // Identical non-orderable should return 0 (type i32)
+    // Identical pointers should return 0 (type i32)
     jeffe_value c_eq = jeffe_cmp(p1, p3);
     CHECK(jeffe_value_typetag(c_eq) == JEFFE_TYPETAG_I32);
     CHECK(jeffe_value_held_data(c_eq).i32 == 0);
 
-    // Different non-orderable should return ERR_NOT_ORDERED errnum
+    // Different pointers should be orderable (0x1234 < 0x5678)
     jeffe_value c_ne = jeffe_cmp(p1, p2);
-    CHECK(jeffe_value_typetag(c_ne) == JEFFE_TYPETAG_ERRNUM);
-    CHECK(jeffe_value_held_data(c_ne).errnum.errnum == JEFFE_ERRNO_NOTORDERED);
+    CHECK(jeffe_value_typetag(c_ne) == JEFFE_TYPETAG_I32);
+    CHECK(jeffe_value_held_data(c_ne).i32 == -1);
 }
 
 TEST_CASE("math_objects")

@@ -59,7 +59,7 @@ Used as a fallback for objects when the left-hand side operand does not support 
 * `cmp(other: struct jeffe_value)`: performs `a <=> other`
 	* The runtime comparative C API `struct jeffe_value jeffe_cmp(struct jeffe_value a, struct jeffe_value b)` invokes the metadata comparison sequence and returns a boxed `jeffe_value`:
 		- A `jeffe_value` of type `i32` with value `-1` if `a < b`, `1` if `a > b`, or `0` if `a == b` for orderable types.
-		- If the types are non-orderable (e.g. `ptr`, `cstruct`, `errnum`, or default `obj`), returns `0` (type `i32`) if they are equal, or a `JEFFE_ERRNO_NOTORDERED` `errnum` value if they are not equal.
+		- If the types are non-orderable (e.g. `cstruct`, `errnum`, or default `obj`), returns `0` (type `i32`) if they are equal, or a `JEFFE_ERRNO_NOTORDERED` `errnum` value if they are not equal.
 	* Custom object implementations that intercept `JEFFE_OP_CMP` via `jeffe_class_fn` return a boxed comparative `jeffe_value` containing numeric components.
 
 ## Iteration

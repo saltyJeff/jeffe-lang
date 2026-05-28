@@ -27,6 +27,7 @@ else()
 endif()
 
 c_with_classes_mode(jeffe-lang)
+set_target_properties(jeffe-lang PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 if(${PROJECT_IS_TOP_LEVEL})
     add_subdirectory(test)
